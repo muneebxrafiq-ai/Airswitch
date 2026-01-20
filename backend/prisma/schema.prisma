@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model ESim {
+  id             String     @id @default(uuid())
+  userId         String
+  iccid          String     @unique
+  smdpAddress    String?
+  activationCode String?
+  status         ESimStatus @default(INACTIVE)
+  region         String?
+  createdAt      DateTime   @default(now())
+  user           User       @relation(fields: [userId], references: [id])
+}
+
+model Transaction {
+  id          String            @id @default(uuid())
+  userId      String
+  amount      Decimal
+  currency    String
+  type        TransactionType
+  reference   String?
+  status      TransactionStatus @default(PENDING)
+  createdAt   DateTime          @default(now())
+  description String?
+  user        User              @relation(fields: [userId], references: [id])
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  password     String
+  name         String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  esims        ESim[]
+  transactions Transaction[]
+  wallet       Wallet?
+}
+
+model Wallet {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  balanceNGN Decimal  @default(0.0)
+  balanceUSD Decimal  @default(0.0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+
+enum ESimStatus {
+  INACTIVE
+  ACTIVE
+  EXPIRED
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+}
