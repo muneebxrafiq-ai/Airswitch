@@ -131,6 +131,17 @@ const LoginScreen = ({ navigation }: { navigation: LoginScreenNavigationProp }) 
                             Sign Up
                         </Button>
                     </View>
+
+                    <View style={styles.forgotPasswordContainer}>
+                        <Button
+                            mode="text"
+                            onPress={() => navigation.navigate('ForgotPassword')}
+                            labelStyle={styles.forgotPasswordText}
+                            compact
+                        >
+                            Forgot Password?
+                        </Button>
+                    </View>
                 </View>
             </ScrollView>
         </TouchableWithoutFeedback>
@@ -188,6 +199,14 @@ const styles = StyleSheet.create({
         fontSize: 12,
         marginBottom: 8,
         marginLeft: 4,
+    },
+    forgotPasswordContainer: {
+        alignItems: 'center',
+        marginTop: 16,
+    },
+    forgotPasswordText: {
+        color: '#6200ee',
+        fontSize: 14,
     },
 });
 

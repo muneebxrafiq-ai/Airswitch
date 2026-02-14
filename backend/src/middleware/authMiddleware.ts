@@ -19,7 +19,10 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
         const verified = jwt.verify(token, JWT_SECRET);
         req.user = verified;
         next();
-    } catch (error) {
-        res.status(403).json({ error: 'Invalid token' });
+    } catch (error: any) {
+        console.error('JWT Verification Failed:', error.message);
+        console.error('Token start:', token.substring(0, 10) + '...');
+        // console.error('Token end:', token.substring(token.length - 10)); // Optional
+        res.status(403).json({ error: 'Invalid token', details: error.message });
     }
 };

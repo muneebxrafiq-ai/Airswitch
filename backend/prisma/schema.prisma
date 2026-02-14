@@ -5,46 +5,98 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model ESim {
   id             String     @id @default(uuid())
   userId         String
+  telnyxSimId    String?
   iccid          String     @unique
   smdpAddress    String?
   activationCode String?
+  qrCodeUrl      String?
   status         ESimStatus @default(INACTIVE)
   region         String?
   createdAt      DateTime   @default(now())
   user           User       @relation(fields: [userId], references: [id])
+  usages         Usage[]
 }
 
 model Transaction {
-  id          String            @id @default(uuid())
-  userId      String
-  amount      Decimal
-  currency    String
-  type        TransactionType
-  reference   String?
-  status      TransactionStatus @default(PENDING)
-  createdAt   DateTime          @default(now())
-  description String?
-  user        User              @relation(fields: [userId], references: [id])
+  id                     String            @id @default(uuid())
+  userId                 String
+  amount                 Decimal
+  currency               String
+  type                   TransactionType
+  reference              String?
+  stripePaymentIntentId  String?           @unique
+  provider               String            @default("STRIPE")
+  status                 TransactionStatus @default(PENDING)
+  createdAt              DateTime          @default(now())
+  description            String?
+  user                   User              @relation(fields: [userId], references: [id])
 }
 
 model User {
-  id           String        @id @default(uuid())
-  email        String        @unique
-  password     String
-  name         String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  esims        ESim[]
-  transactions Transaction[]
-  wallet       Wallet?
+  id                   String                @id @default(uuid())
+  email                String                @unique
+  password             String
+  name                 String?
+  photoURL             String?
+  isVerified           Boolean               @default(false)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  esims                ESim[]
+  transactions         Transaction[]
+  wallet               Wallet?
+  otps                 Otp[]
+  esimOrders           EsimOrder[]
+  phoneNumbers         PhoneNumber[]
+  messages             Message[]
+  calls                Call[]
+  usage                Usage[]
+  referralsCreated     Referral[]            @relation("ReferralsCreated")
+  referralsClaimed     Referral[]            @relation("ReferralsClaimed")
+  userPoints           UserPoints?
+  pointsTransactions   PointsTransaction[]
+  notifications        Notification[]
 }
+
+model EsimOrder {
+  id              String      @id @default(uuid())
+  userId          String
+  giftEmail       String?
+  giftMessage     String?
+  isGift          Boolean     @default(false)
+  
+  telnyxOrderId   String      @unique
+  planId          String
+  status          OrderStatus @default(PENDING)
+  activationUrl   String?
+  activationCode  String?
+  smdpAddress     String?
+  qrCodeUrl       String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  user            User        @relation(fields: [userId], references: [id])
+}
+
+enum OrderStatus {
+  PENDING
+  ACTIVATED
+  FAILED
+}
+
+model Otp {
+  id        String   @id @default(uuid())
+  userId    String
+  hashedOtp String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
 
 model Wallet {
   id         String   @id @default(uuid())
@@ -56,6 +108,29 @@ model Wallet {
   user       User     @relation(fields: [userId], references: [id])
 }
 
+model RegistrationAttempt {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  otp       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Token {
+  id        String   @id @default(uuid())
+  email     String
+  token     String   @unique
+  type      TokenType
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+enum TokenType {
+  PASSWORD_RESET
+}
+
 
 enum ESimStatus {
   INACTIVE
@@ -65,11 +140,131 @@ enum ESimStatus {
 
 enum TransactionStatus {
   PENDING
-  COMPLETED
+  SUCCESS
   FAILED
 }
 
 enum TransactionType {
   CREDIT
   DEBIT
+}
+
+enum ReferralStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
+}
+
+enum PointsType {
+  REFERRAL
+  PURCHASE
+  REDEEM
+  BONUS
+  ADJUSTMENT
+}
+
+model Referral {
+  id              String           @id @default(uuid())
+  referrerId      String
+  referreeId      String?
+  referrerEmail   String
+  referreeEmail   String
+  status          ReferralStatus   @default(PENDING)
+  pointsAwarded   Int              @default(0)
+  bonusAwarded    Decimal          @default(0)
+  referralCode    String           @unique
+  expiresAt       DateTime?
+  createdAt       DateTime         @default(now())
+  referrer        User             @relation("ReferralsCreated", fields: [referrerId], references: [id])
+  referee         User?            @relation("ReferralsClaimed", fields: [referreeId], references: [id])
+}
+
+model UserPoints {
+  id               String                @id @default(uuid())
+  userId           String                @unique
+  totalPoints      Int                   @default(0)
+  availablePoints  Int                   @default(0)
+  redeemedPoints   Int                   @default(0)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  user             User                  @relation(fields: [userId], references: [id])
+  pointsHistory    PointsTransaction[]
+}
+
+model PointsTransaction {
+  id               String           @id @default(uuid())
+  userPointsId     String
+  userId           String
+  amount           Int
+  type             PointsType
+  description      String?
+  referralId       String?
+  createdAt        DateTime         @default(now())
+  userPoints       UserPoints       @relation(fields: [userPointsId], references: [id])
+  user             User             @relation(fields: [userId], references: [id])
+}
+
+model PhoneNumber {
+  id             String            @id @default(uuid())
+  userId         String?
+  telnyxNumberId String            @unique
+  phoneNumber    String            @unique
+  status         PhoneNumberStatus @default(ACTIVE)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  user           User?             @relation(fields: [userId], references: [id])
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  userId      String?
+  from        String
+  to          String
+  body        String
+  direction   String   // inbound, outbound
+  status      String   // sent, delivered, failed, received
+  telnyxId    String?
+  createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id])
+}
+
+model Call {
+  id           String   @id @default(uuid())
+  userId       String?
+  telnyxCallId String   @unique
+  from         String
+  to           String
+  status       String   // ringing, active, ended
+  createdAt    DateTime @default(now())
+  endedAt      DateTime?
+  user         User?    @relation(fields: [userId], references: [id])
+}
+
+model Usage {
+  id          String   @id @default(uuid())
+  userId      String
+  esimId      String?
+  dataUsed    Float    @default(0.0) // in MB
+  smsUsed     Int      @default(0)
+  callMinutes Int      @default(0)
+  periodStart DateTime @default(now())
+  periodEnd   DateTime?
+  user        User     @relation(fields: [userId], references: [id])
+  esim        ESim?    @relation(fields: [esimId], references: [id])
+}
+
+enum PhoneNumberStatus {
+  ACTIVE
+  RELEASED
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String   // REFERRAL, GIFT, SYSTEM, POINTS
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
 }

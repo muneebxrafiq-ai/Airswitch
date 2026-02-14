@@ -1,38 +1,47 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { Text, Card, Button, Title, Paragraph, Avatar, ActivityIndicator } from 'react-native-paper';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import PointsDisplay from '../components/PointsDisplay';
+import PointsRedemptionModal from '../components/PointsRedemptionModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
 const DashboardScreen = ({ navigation }: Props) => {
-    const { user, signOut } = useAuth();
-    const [wallet, setWallet] = useState<any>(null);
+    const { user, signOut, refreshWallet } = useAuth();
     const [refreshing, setRefreshing] = useState(false);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!user);
+    const [showRedeemModal, setShowRedeemModal] = useState(false);
+    const [availablePoints, setAvailablePoints] = useState(0);
 
-    const fetchWallet = async () => {
-        try {
-            const response = await api.get('/wallet');
-            setWallet(response.data);
-        } catch (error) {
-            console.error('Error fetching wallet', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const onRefresh = React.useCallback(async () => {
+    const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await fetchWallet();
-        setRefreshing(false);
-    }, []);
+        try {
+            await refreshWallet();
+        } finally {
+            setRefreshing(false);
+        }
+    }, [refreshWallet]);
 
     useEffect(() => {
-        fetchWallet();
+        if (!user) {
+            refreshWallet().finally(() => setLoading(false));
+        } else {
+            setLoading(false);
+        }
+    }, [user]);
+
+    const loadPoints = useCallback(async () => {
+        try {
+            const response = await api.get('/points/balance');
+            setAvailablePoints(response.data.availablePoints);
+        } catch (error) {
+            console.error('Error loading points:', error);
+            setAvailablePoints(0);
+        }
     }, []);
 
     if (loading && !refreshing) {
@@ -43,6 +52,8 @@ const DashboardScreen = ({ navigation }: Props) => {
         )
     }
 
+    const wallet = user?.wallet;
+
     return (
         <ScrollView
             contentContainerStyle={styles.container}
@@ -52,8 +63,17 @@ const DashboardScreen = ({ navigation }: Props) => {
         >
             <View style={styles.header}>
                 <Title>Hello, {user?.name || 'User'}!</Title>
-                <Button icon="logout" onPress={signOut}>Logout</Button>
+                <View style={{ flexDirection: 'row' }}>
+                    <Button icon="cog" onPress={() => { }} compact>Settings</Button>
+                    <Button icon="logout" onPress={signOut} compact>Logout</Button>
+                </View>
             </View>
+
+            {/* AIR Points Section */}
+            <PointsDisplay onRedeemPress={() => {
+                loadPoints();
+                setShowRedeemModal(true);
+            }} />
 
             <Card style={styles.card}>
                 <Card.Title
@@ -73,9 +93,26 @@ const DashboardScreen = ({ navigation }: Props) => {
                     </View>
                 </Card.Content>
                 <Card.Actions>
-                    {/* Logic to fund wallet would go here */}
-                    <Button onPress={() => alert('Stripe Integration Pending')}>Fund Wallet</Button>
+                    {/* Logic to fund wallet using Stripe */}
+                    <Button onPress={() => navigation.navigate('TopUp')}>Fund Wallet</Button>
+                    <Button onPress={() => navigation.navigate('MyESims')}>My eSIMs</Button>
+                    <Button mode="contained" onPress={() => navigation.navigate('SelectPlan', { phone_number: '+1234567890' })}>Buy New eSIM</Button>
                 </Card.Actions>
+            </Card>
+
+            {/* Active Plans Widget */}
+            <Title style={styles.sectionTitle}>Active Plans</Title>
+            <Card style={styles.activePlanCard} onPress={() => navigation.navigate('MyESims')}>
+                <Card.Content>
+                    <View style={styles.activePlanRow}>
+                        <View>
+                            <Title style={{ fontSize: 18 }}>Global Data</Title>
+                            <Paragraph style={{ color: 'green' }}>Active • 2.1GB left</Paragraph>
+                        </View>
+                        <Avatar.Icon size={40} icon="signal" style={{ backgroundColor: '#e0f2f1' }} color="#009688" />
+                    </View>
+                    <Paragraph style={{ marginTop: 10, fontSize: 12, color: '#666' }}>Exp: 24 Jan 2026</Paragraph>
+                </Card.Content>
             </Card>
 
             <Title style={styles.sectionTitle}>Buy eSIM</Title>
@@ -95,6 +132,13 @@ const DashboardScreen = ({ navigation }: Props) => {
                 </Card.Actions>
             </Card>
 
+            {/* Points Redemption Modal */}
+            <PointsRedemptionModal
+                visible={showRedeemModal}
+                onDismiss={() => setShowRedeemModal(false)}
+                availablePoints={availablePoints}
+                onSuccess={onRefresh}
+            />
         </ScrollView>
     );
 };
@@ -125,6 +169,16 @@ const styles = StyleSheet.create({
     },
     esimCard: {
         marginBottom: 15
+    },
+    activePlanCard: {
+        marginBottom: 15,
+        borderLeftWidth: 4,
+        borderLeftColor: '#009688',
+    },
+    activePlanRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     }
 });
 
