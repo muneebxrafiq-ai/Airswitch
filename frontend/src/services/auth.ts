@@ -2,6 +2,7 @@ import api from './api';
 import * as SecureStore from 'expo-secure-store';
 
 export const login = async (email: string, password: string) => {
+    const response = await api.post('/auth/login', { email, password });
     const { token, user, wallet } = response.data;
     await SecureStore.setItemAsync('token', token);
     // Only store minimal user data to avoid SecureStore size limit

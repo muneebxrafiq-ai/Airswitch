@@ -5,7 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 // For Android Emulator, use http://10.0.2.2:3000/api
 // For iOS/Web localhost, use http://localhost:3000/api
 // For physical device, replace with your LAN IP (e.g http://192.168.1.x:3000/api)
-let BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+let BASE_URL: string | undefined = undefined;
 
 // Fallback logic based on environment
 if (!BASE_URL) {
@@ -21,11 +21,11 @@ if (!BASE_URL) {
 // Force Override for physical device testing (Fixes fallback issue)
 // ADB Reverse (adb reverse tcp:3000 tcp:3000) maps device localhost:3000 to computer:3000
 // This is the most reliable method for both Emulators and USB Devices.
-BASE_URL = 'http://localhost:3000/api';
+// If you are using physical device, you can uncomment the adb reverse in terminal.
+// BASE_URL = 'http://localhost:3000/api';
 
 console.log('------------------------------------------');
 console.log('API DEBUG INFO:');
-console.log('1. Env EXPO_PUBLIC_API_URL:', process.env.EXPO_PUBLIC_API_URL);
 console.log('2. Final BASE_URL:', BASE_URL);
 console.log('------------------------------------------');
 

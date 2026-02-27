@@ -1,4 +1,4 @@
-
+ 
 # 1. Get Local IP Address (Preferred: WiFi or Ethernet)
 $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -match 'Wi-Fi|Ethernet' -and $_.PrefixOrigin -eq 'Dhcp' } | Select-Object -First 1).IPAddress
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Image, useWindowDimensions } from 'react-native';
 import { Text, Title, Paragraph, Button, Divider, ActivityIndicator, useTheme } from 'react-native-paper';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -6,19 +6,40 @@ import { RootStackParamList } from '../navigation/types';
 import api from '../services/api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import { LinearGradient } from 'expo-linear-gradient';
 
 type ESimDetailsRouteProp = RouteProp<RootStackParamList, 'ESimDetails'>;
 
 const ESimDetailsScreen = () => {
     const navigation = useNavigation();
     const route = useRoute<ESimDetailsRouteProp>();
-    const { esim } = route.params;
+    const { esim, usage: initialUsage } = route.params;
     const { colors } = useTheme();
     const { width } = useWindowDimensions();
 
     const [loading, setLoading] = useState(false);
     // Local state to reflect status changes immediately
     const [status, setStatus] = useState(esim.status);
+    const [usage, setUsage] = useState<any>(initialUsage || null);
+    const [usageLoading, setUsageLoading] = useState(false);
+
+    useEffect(() => {
+        if (!usage && status === 'ACTIVE') {
+            fetchUsage();
+        }
+    }, []);
+
+    const fetchUsage = async () => {
+        try {
+            setUsageLoading(true);
+            const response = await api.get(`/esim/${esim.id}/usage`);
+            setUsage(response.data);
+        } catch (error) {
+            console.error('Failed to fetch usage', error);
+        } finally {
+            setUsageLoading(false);
+        }
+    };
 
     const copyToClipboard = async (text: string) => {
         await Clipboard.setStringAsync(text);
@@ -65,6 +86,12 @@ const ESimDetailsScreen = () => {
         }
     };
 
+    // Usage stats
+    const used = usage ? parseFloat(usage.used) : 0;
+    const total = usage ? parseFloat(usage.total) : 1000;
+    const unit = usage ? usage.unit : 'MB';
+    const percent = usage ? (used / total) : 0;
+
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <View style={styles.header}>
@@ -79,6 +106,36 @@ const ESimDetailsScreen = () => {
                 <View style={[styles.statusDot, { backgroundColor: getStatusColor(status) }]} />
                 <Text style={[styles.statusText, { color: getStatusColor(status) }]}>{status}</Text>
             </View>
+
+            {status === 'ACTIVE' && (
+                <View style={styles.card}>
+                    <Title style={styles.sectionTitle}>Data Usage</Title>
+                    {usageLoading ? (
+                        <ActivityIndicator />
+                    ) : (
+                        <View>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+                                <Text style={styles.label}>Used</Text>
+                                <Text style={[styles.value, { textAlign: 'right' }]}>
+                                    {used.toFixed(2)} {unit} <Text style={{ color: '#999' }}>/ {total} {unit}</Text>
+                                </Text>
+                            </View>
+                            {/* Progress Bar Background */}
+                            <View style={{ height: 10, backgroundColor: '#F0F0F0', borderRadius: 5, overflow: 'hidden', marginBottom: 10 }}>
+                                {/* Progress Bar Fill */}
+                                <LinearGradient
+                                    colors={['#FF9F65', '#FF3F85']}
+                                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                                    style={{ width: `${Math.min(percent * 100, 100)}%`, height: '100%' }}
+                                />
+                            </View>
+                            <Text style={{ fontSize: 12, color: '#666', marginTop: 5 }}>
+                                {Math.round((1 - percent) * 100)}% data remaining
+                            </Text>
+                        </View>
+                    )}
+                </View>
+            )}
 
             <View style={styles.card}>
                 <Title style={styles.sectionTitle}>Plan Information</Title>

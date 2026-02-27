@@ -14,22 +14,44 @@ type MyESimsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList,
 const MyESimsScreen = () => {
     const navigation = useNavigation<MyESimsScreenNavigationProp>();
     const { colors } = useTheme();
+    const [usageMap, setUsageMap] = useState<Record<string, any>>({});
+    const [usageLoading, setUsageLoading] = useState<Record<string, boolean>>({});
+    const [filter, setFilter] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
     const [esims, setEsims] = useState<ESim[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [filter, setFilter] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
 
     const fetchEsims = async () => {
         try {
             const response = await api.get('/esim/my-esims');
             setEsims(response.data);
             await AsyncStorage.setItem('cached_esims', JSON.stringify(response.data));
+
+            // Trigger usage fetch for active eSIMs
+            response.data.forEach((sim: ESim) => {
+                if (sim.status === 'ACTIVE') {
+                    fetchUsage(sim.id);
+                }
+            });
+
         } catch (error: any) {
             console.error('Fetch eSIMs Error:', error);
             // Alert.alert('Error', 'Failed to fetch your eSIMs');
         } finally {
             setLoading(false);
             setRefreshing(false);
+        }
+    };
+
+    const fetchUsage = async (esimId: string) => {
+        try {
+            setUsageLoading(prev => ({ ...prev, [esimId]: true }));
+            const response = await api.get(`/esim/${esimId}/usage`);
+            setUsageMap(prev => ({ ...prev, [esimId]: response.data }));
+        } catch (error) {
+            console.error(`Failed to fetch usage for ${esimId}`, error);
+        } finally {
+            setUsageLoading(prev => ({ ...prev, [esimId]: false }));
         }
     };
 
@@ -69,55 +91,85 @@ const MyESimsScreen = () => {
         }
     };
 
-    const renderItem = ({ item }: { item: ESim }) => (
-        <View style={styles.card}>
-            <View style={styles.cardHeader}>
-                <View style={styles.cardIconContainer}>
-                    <Text style={{ fontSize: 24 }}>🇺🇸</Text>
-                </View>
-                <View style={{ flex: 1, paddingHorizontal: 10 }}>
-                    <Text style={styles.cardCountry}>{item.region || 'United States'}</Text>
-                    <Text style={styles.cardPlanName}>{item.planName || 'USA Premium 5G'}</Text>
-                </View>
-                <LinearGradient
-                    colors={['#8E2DE2', '#4A00E0']}
-                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                    style={styles.smallBadge}
-                >
-                    <Text style={styles.badgeText}>Popular</Text>
-                </LinearGradient>
-            </View>
+    const renderItem = ({ item }: { item: ESim }) => {
+        const usage = usageMap[item.id];
+        const isUsageLoading = usageLoading[item.id];
 
-            <View style={styles.cardStatsRow}>
-                <Text style={styles.dataLabel}>Data Usage</Text>
-                <Text style={styles.dataValue}>2.3GB<Text style={{ color: '#999', fontWeight: 'normal' }}>/10GB</Text></Text>
-            </View>
+        // Default values if loading or failed
+        const used = usage ? parseFloat(usage.used) : 0;
+        const total = usage ? parseFloat(usage.total) : 1000;
+        const unit = usage ? usage.unit : 'MB';
+        const percent = usage ? (used / total) : 0;
 
-            <View style={styles.cardNetworkRow}>
-                <View style={styles.statBox}>
-                    <Text style={styles.statLabel}>Network</Text>
-                    <Text style={styles.statValue}>5G</Text>
-                </View>
-                <View style={styles.statBox}>
-                    <Text style={styles.statLabel}>Speed</Text>
-                    <Text style={styles.statValue}>Ultra Fast</Text>
-                </View>
-            </View>
-
-            <View style={styles.cardActionRow}>
-                <Text style={styles.validityText}>Valid until Oct 30, 2025</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('ESimDetails', { esim: item })} activeOpacity={0.8}>
+        return (
+            <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                    <View style={styles.cardIconContainer}>
+                        <Text style={{ fontSize: 24 }}>🇺🇸</Text>
+                    </View>
+                    <View style={{ flex: 1, paddingHorizontal: 10 }}>
+                        <Text style={styles.cardCountry}>{item.region || 'United States'}</Text>
+                        <Text style={styles.cardPlanName}>{item.planName || 'USA Premium 5G'}</Text>
+                    </View>
                     <LinearGradient
-                        colors={['#FF9F65', '#FF3F85']}
+                        colors={['#8E2DE2', '#4A00E0']}
                         start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                        style={styles.manageBtn}
+                        style={styles.smallBadge}
                     >
-                        <Text style={styles.manageBtnText}>Manage</Text>
+                        <Text style={styles.badgeText}>Popular</Text>
                     </LinearGradient>
-                </TouchableOpacity>
+                </View>
+
+                <View style={styles.usageContainer}>
+                    <View style={[styles.cardStatsRow, { marginBottom: 5 }]}>
+                        <Text style={styles.dataLabel}>Data Usage</Text>
+                        {isUsageLoading ? (
+                            <ActivityIndicator size="small" color="#999" />
+                        ) : (
+                            <Text style={styles.dataValue}>
+                                {used.toFixed(1)}{unit}
+                                <Text style={{ color: '#999', fontWeight: 'normal' }}>/{total}{unit}</Text>
+                            </Text>
+                        )}
+                    </View>
+
+                    {/* Progress Bar Background */}
+                    <View style={{ height: 8, backgroundColor: '#F0F0F0', borderRadius: 4, overflow: 'hidden', marginBottom: 20 }}>
+                        {/* Progress Bar Fill */}
+                        <LinearGradient
+                            colors={['#FF9F65', '#FF3F85']}
+                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                            style={{ width: `${Math.min(percent * 100, 100)}%`, height: '100%' }}
+                        />
+                    </View>
+                </View>
+
+                <View style={styles.cardNetworkRow}>
+                    <View style={styles.statBox}>
+                        <Text style={styles.statLabel}>Network</Text>
+                        <Text style={styles.statValue}>5G</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                        <Text style={styles.statLabel}>Speed</Text>
+                        <Text style={styles.statValue}>Ultra Fast</Text>
+                    </View>
+                </View>
+
+                <View style={styles.cardActionRow}>
+                    <Text style={styles.validityText}>Valid until Oct 30, 2025</Text>
+                    <TouchableOpacity onPress={() => navigation.navigate('ESimDetails', { esim: item, usage: usage })} activeOpacity={0.8}>
+                        <LinearGradient
+                            colors={['#FF9F65', '#FF3F85']}
+                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                            style={styles.manageBtn}
+                        >
+                            <Text style={styles.manageBtnText}>Manage</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
             </View>
-        </View>
-    );
+        )
+    };
 
     return (
         <View style={styles.container}>
@@ -352,6 +404,9 @@ const styles = StyleSheet.create({
     emptyText: {
         color: '#888',
         fontSize: 16,
+    },
+    usageContainer: {
+        marginBottom: 20,
     }
 });
 
