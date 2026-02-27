@@ -36,7 +36,14 @@ interface PaystackVerifyResponse {
     }
 }
 
-export const initializeTransaction = async (email: string, amount: number, userId: string, currency: string = 'NGN', callbackUrl?: string, planId?: string) => {
+export const initializeTransaction = async (
+    email: string,
+    amount: number,
+    userId: string,
+    currency: string = 'NGN',
+    _callbackUrl?: string,
+    planId?: string
+) => {
     try {
         // Paystack expects amount in lowest denomination (kobo/cents)
         const amountInSubunit = amount * 100;
@@ -45,7 +52,8 @@ export const initializeTransaction = async (email: string, amount: number, userI
             email,
             amount: amountInSubunit,
             currency,
-            callback_url: callbackUrl,
+            // Always use backend-controlled callback for deep linking
+            callback_url: `${process.env.API_BASE_URL}/api/payments/paystack/return`,
             metadata: {
                 userId,
                 planId: planId || '',

@@ -19,11 +19,12 @@ export type RootStackParamList = {
     IntentSelection: undefined;
     TopUp: undefined;
     SelectPlan: { phone_number?: string };
+    PaymentResult: { reference: string };
     Activation: { orderId: string; activationUrl: string; activationCode: string; smdpAddress?: string };
     SuccessScreen: { message: string };
     ReferralsScreen: undefined;
     MyESims: undefined;
-    ESimDetails: { esim: ESim };
+    ESimDetails: { esim: ESim; usage?: any };
     SelectESim: { onSelect: (esim: ESim) => void };
 };
 

@@ -300,3 +300,69 @@ export const getMyESims = async (req: AuthenticatedRequest, res: Response) => {
         res.status(500).json({ error: 'Internal error' });
     }
 }
+
+export const getESimUsage = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const userId = req.user?.id || req.user?.userId;
+        const esimId = req.params.esimId as string;
+
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+        const esim = await prisma.eSim.findUnique({ where: { id: esimId } });
+
+        if (!esim) return res.status(404).json({ error: 'eSIM not found' });
+        if (esim.userId !== userId) return res.status(403).json({ error: 'Unauthorized' });
+
+        // If it's a Telnyx SIM
+        if ((esim as any).telnyxSimId) {
+            // Dynamic import to avoid circular dependency issues if any, though service is safe
+            const telnyxService = require('../services/telnyxService');
+            const usageData = await telnyxService.getSimCardUsage((esim as any).telnyxSimId);
+
+            // Format for frontend
+            const used = usageData.data?.data_usage || 0;
+            const total = usageData.data?.data_limit || 1000; // Default 1GB if unknown
+            const percentage = Math.min(100, (used / total) * 100);
+
+            return res.json({
+                used: Number(used).toFixed(2),
+                total: Number(total).toFixed(2),
+                unit: usageData.data?.unit || 'MB',
+                percentage: Number(percentage).toFixed(1)
+            });
+        }
+
+        res.json({ used: 0, total: 1000, unit: 'MB', percentage: 0 });
+
+    } catch (error: any) {
+        console.error('Get Usage Error:', error);
+        res.status(500).json({ error: 'Failed to fetch usage' });
+    }
+}
+
+// Lightweight status check for Paystack payments based on backend records
+export const getPaystackPaymentStatus = async (req: Request, res: Response) => {
+    try {
+        const reference = req.params.reference as string;
+        if (!reference) {
+            return res.status(400).json({ error: 'Reference is required' });
+        }
+
+        // If we have a successful transaction with this reference, we treat it as processed
+        const tx = await prisma.transaction.findFirst({
+            where: {
+                reference,
+                status: 'SUCCESS'
+            }
+        });
+
+        if (!tx) {
+            return res.json({ status: 'PENDING' });
+        }
+
+        return res.json({ status: 'SUCCESS' });
+    } catch (error: any) {
+        console.error('Get Paystack Payment Status Error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};

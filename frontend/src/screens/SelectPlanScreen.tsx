@@ -120,54 +120,23 @@ const SelectPlanScreen = ({ navigation, route }: Props) => {
                 paystackCurrency = 'NGN';
             }
 
-            const callbackUrl = Linking.createURL('activation');
-
             const { data } = await api.post('/payments/paystack/initialize', {
                 amount: paystackAmount,
                 email: user?.email || 'user@example.com',
                 currency: paystackCurrency,
-                callback_url: callbackUrl,
                 planId: plan.id
             });
 
-            const { authorization_url, reference } = data;
+            const { authorization_url } = data;
 
             const supported = await Linking.canOpenURL(authorization_url);
             if (supported) {
                 await Linking.openURL(authorization_url);
-                // Listen for return
-                const handleDeepLink = (event: { url: string }) => {
-                    if (event.url.includes(callbackUrl)) { // Check if it's our return URL
-                        subscription.remove();
-                        verifyPaystackPayment(reference, plan);
-                    }
-                };
-                const subscription = Linking.addEventListener('url', handleDeepLink);
-
             } else {
                 throw new Error("Cannot open payment link");
             }
-            // Fallback manual check remains via "Yes I paid" alert or background check?
-            // Actually, for better UX with deep link, we might not need the alert if it works.
-            // But let's keep the alert as a fallback for now, or simplify it.
-
         } catch (error: any) {
             Alert.alert('Payment Initialization Failed', error.message || 'Something went wrong');
-            setPurchasing(false);
-        }
-    };
-
-    const verifyPaystackPayment = async (reference: string, plan: any) => {
-        try {
-            const purchaseResult = await telnyxService.purchaseESim(plan.id, plan.price, reference, 'paystack');
-            navigation.navigate('Activation', {
-                orderId: purchaseResult.order_id,
-                activationUrl: purchaseResult.activation_url,
-                activationCode: purchaseResult.activation_code
-            });
-        } catch (err: any) {
-            console.error(err);
-            Alert.alert('Verification Failed', 'Could not verify your payment. Please contact support if you were debited.');
         } finally {
             setPurchasing(false);
         }

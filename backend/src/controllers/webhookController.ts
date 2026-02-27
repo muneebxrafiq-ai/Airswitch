@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import prisma from '../utils/prismaClient';
 import stripe from '../services/stripeService';
 import * as esimProvisioningService from '../services/esimProvisioningService';
@@ -90,19 +91,36 @@ export const handleStripeWebhook = async (req: Request, res: Response) => {
 export const handlePaystackWebhook = async (req: Request, res: Response) => {
     try {
         const secret = process.env.PAYSTACK_SECRET_KEY as string;
-        const hash = req.headers['x-paystack-signature'];
+        const signature = req.headers['x-paystack-signature'] as string | undefined;
 
-        // In prod:
-        // const hmac = crypto.createHmac('sha512', secret).update(JSON.stringify(req.body)).digest('hex');
-        // if (hash !== hmac) return res.status(401).send('Invalid signature');
+        if (!secret || !signature) {
+            console.warn('[Paystack Webhook] Missing secret or signature');
+            return res.status(400).send('Missing signature');
+        }
 
-        const event = req.body;
+        // req.body is a Buffer because of express.raw() on /api/webhooks
+        const rawBody = req.body as Buffer;
+        const computed = crypto
+            .createHmac('sha512', secret)
+            .update(rawBody)
+            .digest('hex');
+
+        if (computed !== signature) {
+            console.warn('[Paystack Webhook] Invalid signature');
+            return res.status(401).send('Invalid signature');
+        }
+
+        const event = JSON.parse(rawBody.toString('utf8'));
         console.log(`[Paystack Webhook] ${event.event}`);
 
         if (event.event === 'charge.success') {
             const { reference, amount, currency, metadata } = event.data;
-            const userId = metadata?.userId || metadata?.custom_fields?.find((f: any) => f.variable_name === 'user_id')?.value;
-            const planId = metadata?.planId || metadata?.custom_fields?.find((f: any) => f.variable_name === 'plan_id')?.value;
+            const userId =
+                metadata?.userId ||
+                metadata?.custom_fields?.find((f: any) => f.variable_name === 'user_id')?.value;
+            const planId =
+                metadata?.planId ||
+                metadata?.custom_fields?.find((f: any) => f.variable_name === 'plan_id')?.value;
 
             console.log(`Paystack Charge Success: ${reference} for User: ${userId}, Plan: ${planId}`);
 
@@ -115,11 +133,12 @@ export const handlePaystackWebhook = async (req: Request, res: Response) => {
                     amount: amount / 100, // Paystack is in kobo
                     currency: currency.toUpperCase()
                 });
+            } else {
+                console.warn('[Paystack Webhook] Missing userId or planId in metadata');
             }
         }
 
         res.sendStatus(200);
-
     } catch (error: any) {
         console.error('Paystack Webhook Error:', error);
         res.status(500).send('Webhook Failed');

@@ -23,6 +23,7 @@ import ESimDetailsScreen from '../screens/ESimDetailsScreen';
 import ProfileCreationScreen from '../screens/ProfileCreationScreen';
 import IntentSelectionScreen from '../screens/IntentSelectionScreen';
 import SelectESimScreen from '../screens/SelectESimScreen';
+import PaymentResultScreen from '../screens/PaymentResultScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -71,6 +72,7 @@ const AppNavigator = () => {
                         <Stack.Screen name="MyESims" component={MyESimsScreen} />
                         <Stack.Screen name="SelectESim" component={SelectESimScreen} options={{ title: 'Select eSIM' }} />
                         <Stack.Screen name="ESimDetails" component={ESimDetailsScreen} options={{ headerShown: false }} />
+                        <Stack.Screen name="PaymentResult" component={PaymentResultScreen} />
                     </Stack.Group>
                 ) : (
                     <Stack.Group>
