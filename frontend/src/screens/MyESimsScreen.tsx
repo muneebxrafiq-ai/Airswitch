@@ -8,6 +8,7 @@ import { RootStackParamList, ESim } from '../navigation/types';
 import api from '../services/api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { COLORS } from '../theme';
 
 type MyESimsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'MyESims'>;
 
@@ -174,7 +175,7 @@ const MyESimsScreen = () => {
     return (
         <View style={styles.container}>
             <LinearGradient
-                colors={['#FFE2D1', '#FFF5F0', '#FFFFFF']}
+                colors={[COLORS.background, COLORS.background, COLORS.background]}
                 style={StyleSheet.absoluteFill}
             />
             <View style={styles.header}>
@@ -241,7 +242,7 @@ const MyESimsScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: COLORS.background,
     },
     header: {
         paddingTop: 60,
@@ -252,7 +253,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: '#333',
+        color: COLORS.text,
     },
     filterContainer: {
         flexDirection: 'row',
@@ -282,7 +283,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     inactiveTabText: {
-        color: '#888',
+        color: COLORS.textSecondary,
         fontWeight: '600',
         fontSize: 16,
     },
@@ -292,14 +293,11 @@ const styles = StyleSheet.create({
     },
     card: {
         marginBottom: 20,
-        backgroundColor: 'white',
+        backgroundColor: COLORS.surface,
         borderRadius: 24,
         padding: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 10,
-        elevation: 3,
+        borderWidth: 1,
+        borderColor: COLORS.border,
     },
     cardHeader: {
         flexDirection: 'row',
@@ -310,18 +308,20 @@ const styles = StyleSheet.create({
         width: 50,
         height: 50,
         borderRadius: 25,
-        backgroundColor: '#F7F9FB',
+        backgroundColor: COLORS.surfaceLight,
         justifyContent: 'center',
         alignItems: 'center',
+        borderWidth: 1,
+        borderColor: COLORS.border,
     },
     cardCountry: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#1a1a1a',
+        color: COLORS.text,
     },
     cardPlanName: {
         fontSize: 14,
-        color: '#666',
+        color: COLORS.textSecondary,
         marginTop: 2,
     },
     smallBadge: {
@@ -342,12 +342,12 @@ const styles = StyleSheet.create({
     },
     dataLabel: {
         fontSize: 14,
-        color: '#666',
+        color: COLORS.textSecondary,
     },
     dataValue: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#1a1a1a',
+        color: COLORS.text,
     },
     cardNetworkRow: {
         flexDirection: 'row',
@@ -356,21 +356,21 @@ const styles = StyleSheet.create({
     },
     statBox: {
         flex: 1,
-        backgroundColor: '#FCFCFC',
+        backgroundColor: COLORS.surfaceLight,
         borderRadius: 16,
         padding: 15,
         borderWidth: 1,
-        borderColor: '#F0F0F0',
+        borderColor: COLORS.border,
     },
     statLabel: {
         fontSize: 12,
-        color: '#999',
+        color: COLORS.textSecondary,
         marginBottom: 5,
     },
     statValue: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#1a1a1a',
+        color: COLORS.text,
     },
     cardActionRow: {
         flexDirection: 'row',
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
     },
     validityText: {
         fontSize: 13,
-        color: '#666',
+        color: COLORS.textSecondary,
     },
     manageBtn: {
         paddingVertical: 10,
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
         paddingTop: 50,
     },
     emptyText: {
-        color: '#888',
+        color: COLORS.textSecondary,
         fontSize: 16,
     },
     usageContainer: {

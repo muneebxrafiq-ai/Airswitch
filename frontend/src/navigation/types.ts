@@ -19,6 +19,7 @@ export type RootStackParamList = {
     IntentSelection: undefined;
     TopUp: undefined;
     SelectPlan: { phone_number?: string };
+    ProfileSettings: undefined;
     PaymentResult: { reference: string };
     Activation: { orderId: string; activationUrl: string; activationCode: string; smdpAddress?: string };
     SuccessScreen: { message: string };

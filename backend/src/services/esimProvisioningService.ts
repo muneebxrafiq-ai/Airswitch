@@ -2,6 +2,9 @@
 import prisma from '../utils/prismaClient';
 import * as telnyxService from './telnyxService';
 
+// In-Memory Lock to prevent race conditions (e.g., webhook and polling fallback firing same millisecond)
+const activeProvisioningLocks = new Set<string>();
+
 // This service ensures that eSIMs are provisioned consistently regardless of trigger
 export const provisionESim = async ({
     userId,
@@ -20,6 +23,13 @@ export const provisionESim = async ({
 }) => {
     try {
         console.log(`Provisioning eSIM: User=${userId}, Plan=${planId}, Ref=${paymentReference}`);
+
+        // 0. Acquire Lock to prevent race conditions
+        if (activeProvisioningLocks.has(paymentReference)) {
+            console.log(`[Provisioning Lock] Already processing reference: ${paymentReference}. Skipping to avoid double provisioning.`);
+            return null; // The other process will handle it
+        }
+        activeProvisioningLocks.add(paymentReference);
 
         // 1. Check if order already exists for this payment reference (Idempotency)
         const existingTransaction = await prisma.transaction.findFirst({
@@ -93,5 +103,7 @@ export const provisionESim = async ({
     } catch (error: any) {
         console.error('Provisioning Error:', error);
         throw new Error('Failed to provision eSIM: ' + error.message);
+    } finally {
+        activeProvisioningLocks.delete(paymentReference);
     }
 };

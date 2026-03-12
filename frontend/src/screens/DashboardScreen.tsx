@@ -7,6 +7,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import PointsDisplay from '../components/PointsDisplay';
 import PointsRedemptionModal from '../components/PointsRedemptionModal';
+import { COLORS } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
@@ -147,6 +148,8 @@ const styles = StyleSheet.create({
     container: {
         padding: 16,
         paddingTop: 50,
+        backgroundColor: COLORS.background,
+        flexGrow: 1,
     },
     header: {
         flexDirection: 'row',
@@ -157,6 +160,7 @@ const styles = StyleSheet.create({
     card: {
         marginBottom: 20,
         elevation: 4,
+        backgroundColor: COLORS.surface,
     },
     balanceRow: {
         flexDirection: 'row',
@@ -168,12 +172,14 @@ const styles = StyleSheet.create({
         marginBottom: 10
     },
     esimCard: {
-        marginBottom: 15
+        marginBottom: 15,
+        backgroundColor: COLORS.surface,
     },
     activePlanCard: {
         marginBottom: 15,
         borderLeftWidth: 4,
         borderLeftColor: '#009688',
+        backgroundColor: COLORS.surface,
     },
     activePlanRow: {
         flexDirection: 'row',

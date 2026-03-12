@@ -3,366 +3,330 @@ import prisma from '../utils/prismaClient';
 import stripe from '../services/stripeService';
 import { verifyTransaction } from '../services/paystackService';
 import { createESim, fetchAvailablePackages, activateESim as activateTelnyxESim, deactivateESim as deactivateTelnyxESim } from '../services/telnyxService';
+import { provisionESim } from '../services/esimProvisioningService';
+import { catchAsync } from '../middleware/errorMiddleware';
+import { BadRequestError, UnauthorizedError, NotFoundError, AppError } from '../utils/AppError';
 
 interface AuthenticatedRequest extends Request {
     user?: {
-        userId: string; // Adjusted to match likely Auth Middleware payload
+        userId: string;
         id?: string;
     };
 }
 
-export const getAvailableESims = async (req: Request, res: Response) => {
-    try {
-        const plans = await fetchAvailablePackages();
-        res.json(plans);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch eSIMs' });
-    }
-}
+export const getAvailableESims = catchAsync(async (req: Request, res: Response) => {
+    const plans = await fetchAvailablePackages();
+    res.json(plans);
+});
 
-export const buyESim = async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const userId = req.user?.id || req.user?.userId;
-        const { planId, price, isGift, giftEmail, usePoints, paymentMethod = 'wallet', paymentId } = req.body;
+export const buyESim = catchAsync(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user?.id || req.user?.userId;
+    const { planId, price, isGift, giftEmail, usePoints, paymentMethod = 'wallet', paymentId } = req.body;
 
-        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!userId) throw new UnauthorizedError();
 
-        // 1. Pre-validation and Price Calculation
-        // Fetch wallet and points initially to check sufficiency (optimistic check)
-        const wallet = await prisma.wallet.findUnique({ where: { userId } });
-        if (!wallet && paymentMethod === 'wallet') return res.status(404).json({ error: "Wallet not found" });
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet && paymentMethod === 'wallet') throw new NotFoundError("Wallet not found");
 
-        let finalPrice = Number(price || 10);
-        let pointsToDeduct = 0;
-        let pointsValue = 0;
+    let finalPrice = Number(price || 10);
+    let pointsToDeduct = 0;
 
-        // Logic for Points (Read-only check)
-        if (usePoints) {
-            const userPoints = await prisma.userPoints.findUnique({ where: { userId } });
-            if (userPoints) {
-                pointsValue = userPoints.availablePoints / 100; // 100 points = $1
-                if (pointsValue >= finalPrice) {
-                    pointsToDeduct = finalPrice * 100;
-                    finalPrice = 0;
-                } else {
-                    pointsToDeduct = userPoints.availablePoints;
-                    finalPrice -= pointsValue;
-                }
-            }
-        }
-
-        // Logic for Payment Verification (Read-only / External Check)
-        if (finalPrice > 0) {
-            if (paymentMethod === 'wallet') {
-                if (wallet!.balanceUSD.toNumber() < finalPrice) {
-                    return res.status(400).json({ error: "Insufficient funds in wallet" });
-                }
-            } else if (paymentMethod === 'stripe') {
-                if (!paymentId) return res.status(400).json({ error: "Payment ID required for Stripe" });
-                const intent = await stripe.paymentIntents.retrieve(paymentId);
-                if (intent.status !== 'succeeded') return res.status(400).json({ error: "Stripe payment not successful" });
-            } else if (paymentMethod === 'paystack') {
-                if (!paymentId) return res.status(400).json({ error: "Payment Reference required for Paystack" });
-                const verifyData = await verifyTransaction(paymentId);
-                if (verifyData.data.status !== 'success') return res.status(400).json({ error: "Paystack payment not successful" });
+    if (usePoints) {
+        const userPoints = await prisma.userPoints.findUnique({ where: { userId } });
+        if (userPoints) {
+            const pointsValue = userPoints.availablePoints / 100;
+            if (pointsValue >= finalPrice) {
+                pointsToDeduct = finalPrice * 100;
+                finalPrice = 0;
             } else {
-                return res.status(400).json({ error: "Invalid payment method" });
+                pointsToDeduct = userPoints.availablePoints;
+                finalPrice -= pointsValue;
             }
         }
+    }
 
-        // 2. Call Provider (Telnyx) - Executed OUTSIDE the DB transaction
-        // This prevents the "Transaction API error" (timeout) if Telnyx is slow
-        let simInfo;
-        try {
-            console.log("Requesting eSIM creation from Telnyx...");
-            const esimData = await createESim(1);
-            simInfo = esimData.data;
-            console.log("Telnyx eSIM created:", simInfo.id);
-        } catch (apiError: any) {
-            console.error("Telnyx API Failed:", apiError);
-            return res.status(502).json({ error: "Failed to provision eSIM from provider. Please try again or contact support." });
+    if (finalPrice > 0) {
+        if (paymentMethod === 'wallet') {
+            if (wallet!.balanceUSD.toNumber() < finalPrice) {
+                throw new BadRequestError("Insufficient funds in wallet");
+            }
+        } else if (paymentMethod === 'stripe') {
+            if (!paymentId) throw new BadRequestError("Payment ID required for Stripe");
+            const intent = await stripe.paymentIntents.retrieve(paymentId);
+            if (intent.status !== 'succeeded') throw new BadRequestError("Stripe payment not successful");
+        } else if (paymentMethod === 'paystack') {
+            if (!paymentId) throw new BadRequestError("Payment Reference required for Paystack");
+            const verifyData = await verifyTransaction(paymentId);
+            if (verifyData.data.status !== 'success') throw new BadRequestError("Paystack payment not successful");
+        } else {
+            throw new BadRequestError("Invalid payment method");
         }
+    }
 
-        // 3. Database Transaction - Record the purchase and deduct funds
-        try {
-            const result = await prisma.$transaction(async (prisma) => {
-                // RE-FETCH / LOCK logic could go here, but for now we trust the flow or accept minor race conditions for UX speed.
-                // Strictly speaking, we should re-check wallet balance inside transaction.
+    let simInfo;
+    try {
+        const esimData = await createESim(1);
+        simInfo = esimData.data;
+    } catch (apiError: any) {
+        console.error("Telnyx API Failed:", apiError);
+        throw new AppError("Failed to provision eSIM from provider. Please try again or contact support.", 502);
+    }
 
-                if (pointsToDeduct > 0) {
-                    await prisma.userPoints.update({
-                        where: { userId },
-                        data: { availablePoints: { decrement: pointsToDeduct } }
-                    });
-                    await prisma.pointsTransaction.create({
-                        data: {
-                            userId,
-                            userPointsId: (await prisma.userPoints.findUniqueOrThrow({ where: { userId } })).id, // unlikely to fail
-                            amount: -pointsToDeduct,
-                            type: 'REDEEM',
-                            description: `Applied to eSIM Purchase ${planId}`
-                        }
-                    });
-                }
-
-                if (finalPrice > 0 && paymentMethod === 'wallet') {
-                    // Re-check balance inside transaction to be safe
-                    const currentWallet = await prisma.wallet.findUniqueOrThrow({ where: { userId } });
-                    if (currentWallet.balanceUSD.toNumber() < finalPrice) {
-                        throw new Error("Insufficient funds (balance changed during transaction)");
+    try {
+        const result = await prisma.$transaction(async (prisma) => {
+            if (pointsToDeduct > 0) {
+                await prisma.userPoints.update({
+                    where: { userId },
+                    data: { availablePoints: { decrement: pointsToDeduct } }
+                });
+                const up = await prisma.userPoints.findUniqueOrThrow({ where: { userId } });
+                await prisma.pointsTransaction.create({
+                    data: {
+                        userId,
+                        userPointsId: up.id,
+                        amount: -pointsToDeduct,
+                        type: 'REDEEM',
+                        description: `Applied to eSIM Purchase ${planId}`
                     }
+                });
+            }
 
-                    await prisma.wallet.update({
-                        where: { userId },
-                        data: { balanceUSD: { decrement: finalPrice } }
-                    });
-
-                    await prisma.transaction.create({
-                        data: {
-                            userId,
-                            amount: finalPrice,
-                            currency: 'USD',
-                            type: 'DEBIT',
-                            status: 'SUCCESS',
-                            description: `ESim Purchase ${planId} ${isGift ? '(Gift)' : ''}`
-                        }
-                    });
+            if (finalPrice > 0 && paymentMethod === 'wallet') {
+                const currentWallet = await prisma.wallet.findUniqueOrThrow({ where: { userId } });
+                if (currentWallet.balanceUSD.toNumber() < finalPrice) {
+                    throw new BadRequestError("Insufficient funds (balance changed during transaction)");
                 }
 
-                // If Paid via Stripe/Paystack, we might want to record a CREDIT then DEBIT or just a successful transaction record?
-                // The original code didn't record Stripe/Paystack transactions in the `Transaction` table, only Wallet usage.
-                // We keep it consistent with original implementation.
-
-                // Create eSIM Record
-                const esimRecord = await prisma.eSim.create({
-                    data: {
-                        userId,
-                        telnyxSimId: simInfo.id,
-                        iccid: simInfo.iccid || `PENDING_${Date.now()}`,
-                        status: 'INACTIVE', // Telnyx sims created via API are 'enabled' but we mark local status
-                        qrCodeUrl: simInfo.qr_code_url,
-                        activationCode: simInfo.activation_code || `LPA:1$rsp.telnyx.com$${simInfo.iccid}`,
-                        smdpAddress: simInfo.smdp_address || 'rsp.telnyx.com'
-                    } as any
+                await prisma.wallet.update({
+                    where: { userId },
+                    data: { balanceUSD: { decrement: finalPrice } }
                 });
 
-                // Create Order Record
-                await prisma.esimOrder.create({
+                await prisma.transaction.create({
                     data: {
                         userId,
-                        telnyxOrderId: simInfo.id,
-                        planId: planId || 'unknown_plan',
-                        status: 'ACTIVATED',
-                        isGift: !!isGift,
-                        giftEmail: giftEmail || null,
-                        qrCodeUrl: simInfo.qr_code_url
-                    } as any
+                        amount: finalPrice,
+                        currency: 'USD',
+                        type: 'DEBIT',
+                        status: 'SUCCESS',
+                        description: `ESim Purchase ${planId} ${isGift ? '(Gift)' : ''}`
+                    }
                 });
+            }
 
-                return {
-                    message: 'eSIM purchased successfully',
-                    order_id: esimRecord.id,
-                    activation_url: simInfo.qr_code_url,
-                    activation_code: simInfo.activation_code || `LPA:1$rsp.telnyx.com$${simInfo.iccid}`,
-                    smdp_address: simInfo.smdp_address || 'rsp.telnyx.com'
-                };
+            const esimRecord = await prisma.eSim.create({
+                data: {
+                    userId,
+                    telnyxSimId: simInfo.id,
+                    iccid: simInfo.iccid || `PENDING_${Date.now()}`,
+                    status: 'INACTIVE',
+                    qrCodeUrl: simInfo.qr_code_url,
+                    activationCode: simInfo.activation_code || `LPA:1$rsp.telnyx.com$${simInfo.iccid}`,
+                    smdpAddress: simInfo.smdp_address || 'rsp.telnyx.com'
+                } as any
             });
 
-            res.json(result);
-
-        } catch (dbError: any) {
-            console.error("Database Transaction Failed after Telnyx success:", dbError);
-            // CRITICAL: We have a created eSIM on Telnyx but failed to record it/charge user.
-            // We should attempt to cleanup (deactivate) the eSIM on Telnyx to avoid costs/orphans.
-            // This is "Compensation Logic".
-            try {
-                if (simInfo && simInfo.id) {
-                    console.log(`Compensating: Deactivating orphaned Telnyx eSIM ${simInfo.id}...`);
-                    await deactivateTelnyxESim(simInfo.id);
-                }
-            } catch (cleanupError) {
-                console.error("Failed to cleanup orphaned eSIM:", cleanupError);
-            }
-
-            res.status(500).json({ error: "Transaction failed. No funds deducted. Please try again." });
-        }
-
-    } catch (error: any) {
-        console.error('Purchase error:', error);
-        res.status(400).json({ error: error.message || 'Purchase failed' });
-    }
-}
-
-export const activateESim = async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const userId = req.user?.id || req.user?.userId;
-        const { esimId } = req.body;
-
-        console.log(`[Activation] Request - UserId: ${userId}, ESimId: ${esimId}`);
-
-        const esim = await prisma.eSim.findUnique({ where: { id: esimId } });
-
-        if (!esim) {
-            console.log('[Activation] eSim not found');
-            return res.status(404).json({ error: `eSIM not found (ID: ${esimId})` });
-        }
-        if (esim.userId !== userId) {
-            console.log(`[Activation] Unauthorized: Owner ${esim.userId} !== Requestor ${userId}`);
-            return res.status(404).json({ error: `eSIM Unauthorized (Owner: ${esim.userId}, Requestor: ${userId})` });
-        }
-
-        if ((esim as any).telnyxSimId) {
-            await activateTelnyxESim((esim as any).telnyxSimId);
-        }
-
-        await prisma.eSim.update({
-            where: { id: esimId },
-            data: { status: 'ACTIVE' }
-        });
-
-        res.json({ message: 'eSIM activated' });
-    } catch (error: any) {
-        console.error('Activation Error:', error);
-        res.status(400).json({ error: error.message || 'Activation failed' });
-    }
-}
-
-export const deactivateESim = async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const userId = req.user?.id || req.user?.userId;
-        const { esimId } = req.body;
-
-        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-        const esim = await prisma.eSim.findUnique({ where: { id: esimId } });
-
-        if (!esim) {
-            return res.status(404).json({ error: 'eSIM not found' });
-        }
-        if (esim.userId !== userId) {
-            return res.status(403).json({ error: 'Unauthorized to deactivate this eSIM' });
-        }
-
-        // Call Telnyx to deactivate
-        if ((esim as any).telnyxSimId) {
-            await deactivateTelnyxESim((esim as any).telnyxSimId);
-        }
-
-        // Update DB
-        const updatedEsim = await prisma.eSim.update({
-            where: { id: esimId },
-            data: { status: 'INACTIVE' }
-        });
-
-        res.json({ message: 'eSIM deactivated successfully', esim: updatedEsim });
-    } catch (error: any) {
-        console.error('Deactivation Error:', error);
-        res.status(400).json({ error: error.message || 'Deactivation failed' });
-    }
-};
-
-export const getMyESims = async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const userId = req.user?.id || req.user?.userId;
-        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-        const esims = await prisma.eSim.findMany({
-            where: { userId },
-            orderBy: { createdAt: 'desc' }
-        });
-
-        const enrichedEsims = await Promise.all(esims.map(async (sim) => {
-            let planName = 'Unknown Plan';
-            let planId = null;
-
-            if ((sim as any).telnyxSimId) {
-                const order = await prisma.esimOrder.findFirst({
-                    where: { telnyxOrderId: (sim as any).telnyxSimId }
-                });
-                if (order) {
-                    planId = order.planId;
-                    // Ideally we would map planId to a name here if we had a local plans table
-                    // For now, we can infer or pass the ID
-                    planName = `Plan ${order.planId} (${sim.region || 'Global'})`;
-                }
-            }
+            await prisma.esimOrder.create({
+                data: {
+                    userId,
+                    telnyxOrderId: simInfo.id,
+                    planId: planId || 'unknown_plan',
+                    status: 'ACTIVATED',
+                    isGift: !!isGift,
+                    giftEmail: giftEmail || null,
+                    qrCodeUrl: simInfo.qr_code_url
+                } as any
+            });
 
             return {
-                ...sim,
-                planId,
-                planName
+                message: 'eSIM purchased successfully',
+                order_id: esimRecord.id,
+                activation_url: simInfo.qr_code_url,
+                activation_code: simInfo.activation_code || `LPA:1$rsp.telnyx.com$${simInfo.iccid}`,
+                smdp_address: simInfo.smdp_address || 'rsp.telnyx.com'
             };
-        }));
-
-        res.json(enrichedEsims);
-    } catch (error) {
-        console.error('Get My eSIMs Error:', error);
-        res.status(500).json({ error: 'Internal error' });
-    }
-}
-
-export const getESimUsage = async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const userId = req.user?.id || req.user?.userId;
-        const esimId = req.params.esimId as string;
-
-        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-        const esim = await prisma.eSim.findUnique({ where: { id: esimId } });
-
-        if (!esim) return res.status(404).json({ error: 'eSIM not found' });
-        if (esim.userId !== userId) return res.status(403).json({ error: 'Unauthorized' });
-
-        // If it's a Telnyx SIM
-        if ((esim as any).telnyxSimId) {
-            // Dynamic import to avoid circular dependency issues if any, though service is safe
-            const telnyxService = require('../services/telnyxService');
-            const usageData = await telnyxService.getSimCardUsage((esim as any).telnyxSimId);
-
-            // Format for frontend
-            const used = usageData.data?.data_usage || 0;
-            const total = usageData.data?.data_limit || 1000; // Default 1GB if unknown
-            const percentage = Math.min(100, (used / total) * 100);
-
-            return res.json({
-                used: Number(used).toFixed(2),
-                total: Number(total).toFixed(2),
-                unit: usageData.data?.unit || 'MB',
-                percentage: Number(percentage).toFixed(1)
-            });
-        }
-
-        res.json({ used: 0, total: 1000, unit: 'MB', percentage: 0 });
-
-    } catch (error: any) {
-        console.error('Get Usage Error:', error);
-        res.status(500).json({ error: 'Failed to fetch usage' });
-    }
-}
-
-// Lightweight status check for Paystack payments based on backend records
-export const getPaystackPaymentStatus = async (req: Request, res: Response) => {
-    try {
-        const reference = req.params.reference as string;
-        if (!reference) {
-            return res.status(400).json({ error: 'Reference is required' });
-        }
-
-        // If we have a successful transaction with this reference, we treat it as processed
-        const tx = await prisma.transaction.findFirst({
-            where: {
-                reference,
-                status: 'SUCCESS'
-            }
         });
 
-        if (!tx) {
-            return res.json({ status: 'PENDING' });
+        res.json(result);
+
+    } catch (dbError: any) {
+        console.error("Database Transaction Failed after Telnyx success:", dbError);
+        try {
+            if (simInfo && simInfo.id) {
+                await deactivateTelnyxESim(simInfo.id);
+            }
+        } catch (cleanupError) {
+            console.error("Failed to cleanup orphaned eSIM:", cleanupError);
+        }
+        throw dbError; // re-throw to be caught by catchAsync
+    }
+});
+
+export const activateESim = catchAsync(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user?.id || req.user?.userId;
+    const { esimId } = req.body;
+
+    const esim = await prisma.eSim.findUnique({ where: { id: esimId } });
+
+    if (!esim) throw new NotFoundError(`eSIM not found (ID: ${esimId})`);
+    if (esim.userId !== userId) throw new UnauthorizedError("Unauthorized to activate this eSIM");
+
+    if ((esim as any).telnyxSimId) {
+        await activateTelnyxESim((esim as any).telnyxSimId);
+    }
+
+    await prisma.eSim.update({
+        where: { id: esimId },
+        data: { status: 'ACTIVE' }
+    });
+
+    res.json({ message: 'eSIM activated' });
+});
+
+export const deactivateESim = catchAsync(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user?.id || req.user?.userId;
+    const { esimId } = req.body;
+
+    if (!userId) throw new UnauthorizedError();
+
+    const esim = await prisma.eSim.findUnique({ where: { id: esimId } });
+
+    if (!esim) throw new NotFoundError('eSIM not found');
+    if (esim.userId !== userId) throw new UnauthorizedError('Unauthorized to deactivate this eSIM');
+
+    if ((esim as any).telnyxSimId) {
+        await deactivateTelnyxESim((esim as any).telnyxSimId);
+    }
+
+    const updatedEsim = await prisma.eSim.update({
+        where: { id: esimId },
+        data: { status: 'INACTIVE' }
+    });
+
+    res.json({ message: 'eSIM deactivated successfully', esim: updatedEsim });
+});
+
+export const getMyESims = catchAsync(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user?.id || req.user?.userId;
+    if (!userId) throw new UnauthorizedError();
+
+    const esims = await prisma.eSim.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    const enrichedEsims = await Promise.all(esims.map(async (sim) => {
+        let planName = 'Unknown Plan';
+        let planId = null;
+
+        if ((sim as any).telnyxSimId) {
+            const order = await prisma.esimOrder.findFirst({
+                where: { telnyxOrderId: (sim as any).telnyxSimId }
+            });
+            if (order) {
+                planId = order.planId;
+                planName = `Plan ${order.planId} (${sim.region || 'Global'})`;
+            }
         }
 
-        return res.json({ status: 'SUCCESS' });
-    } catch (error: any) {
-        console.error('Get Paystack Payment Status Error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        return { ...sim, planId, planName };
+    }));
+
+    res.json(enrichedEsims);
+});
+
+export const getESimUsage = catchAsync(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user?.id || req.user?.userId;
+    const esimId = req.params.esimId as string;
+
+    if (!userId) throw new UnauthorizedError();
+
+    const esim = await prisma.eSim.findUnique({ where: { id: esimId } });
+
+    if (!esim) throw new NotFoundError('eSIM not found');
+    if (esim.userId !== userId) throw new UnauthorizedError();
+
+    if ((esim as any).telnyxSimId) {
+        const telnyxService = require('../services/telnyxService');
+        const usageData = await telnyxService.getSimCardUsage((esim as any).telnyxSimId);
+
+        const used = usageData.data?.data_usage || 0;
+        const total = usageData.data?.data_limit || 1000;
+        const percentage = Math.min(100, (used / total) * 100);
+
+        return res.json({
+            used: Number(used).toFixed(2),
+            total: Number(total).toFixed(2),
+            unit: usageData.data?.unit || 'MB',
+            percentage: Number(percentage).toFixed(1)
+        });
     }
-};
+
+    res.json({ used: 0, total: 1000, unit: 'MB', percentage: 0 });
+});
+
+// Cache to prevent rapid polling from overwhelming DB/Paystack APIs
+const paystackCheckCache = new Map<string, { status: string, expiresAt: number }>();
+
+export const getPaystackPaymentStatus = catchAsync(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user?.id || req.user?.userId;
+    const reference = req.params.reference as string;
+    if (!reference) throw new BadRequestError('Reference is required');
+    if (!userId) throw new UnauthorizedError();
+
+    // 1. Check if we've already provisioned for this reference
+    const existingTx = await prisma.transaction.findFirst({
+        where: { reference, status: 'SUCCESS' }
+    });
+
+    if (existingTx) {
+        return res.json({ status: 'SUCCESS' });
+    }
+
+    // 2. Check in-memory cache to prevent spamming Paystack API (e.g. if frontend polls 3 times a second)
+    const cached = paystackCheckCache.get(reference);
+    if (cached && cached.expiresAt > Date.now()) {
+        console.log(`[PaystackStatus] Returning cached status for ${reference}: ${cached.status}`);
+        return res.json({ status: cached.status });
+    }
+
+    // 3. Verify with Paystack API directly (in case webhook hasn't fired yet)
+    try {
+        const paystackResult = await verifyTransaction(reference);
+
+        if (paystackResult.data.status === 'success') {
+            // Payment succeeded! Check if a webhook already handled it
+            const alreadyProvisioned = await prisma.transaction.findFirst({
+                where: { reference, status: 'SUCCESS' }
+            });
+
+            if (!alreadyProvisioned) {
+                // Webhook hasn't processed yet — provision the eSIM now
+                const planId = paystackResult.data.metadata?.planId ||
+                    paystackResult.data.metadata?.custom_fields?.find((f: any) => f.variable_name === 'plan_id')?.value ||
+                    'unknown_plan';
+
+                await provisionESim({
+                    userId,
+                    planId,
+                    paymentReference: reference,
+                    paymentMethod: 'PAYSTACK' as const,
+                    amount: paystackResult.data.amount / 100,
+                    currency: paystackResult.data.currency.toUpperCase()
+                });
+
+                console.log(`[PaystackStatus] Provisioned eSIM for ${reference} (webhook fallback)`);
+            }
+
+            return res.json({ status: 'SUCCESS' });
+        }
+
+        // Payment not yet successful
+        paystackCheckCache.set(reference, { status: 'PENDING', expiresAt: Date.now() + 5000 }); // Cache pending for 5 seconds
+        return res.json({ status: 'PENDING' });
+    } catch (verifyError: any) {
+        console.error('[PaystackStatus] Verify error:', verifyError.message);
+        paystackCheckCache.set(reference, { status: 'PENDING', expiresAt: Date.now() + 5000 }); // Cache error as pending to prevent spam
+        return res.json({ status: 'PENDING' });
+    }
+});

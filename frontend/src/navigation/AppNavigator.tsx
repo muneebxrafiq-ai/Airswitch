@@ -4,6 +4,23 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { ActivityIndicator, View } from 'react-native';
 import { RootStackParamList } from './types';
+import * as Linking from 'expo-linking';
+
+const prefix = Linking.createURL('/');
+
+const linking = {
+    prefixes: [prefix, 'airswitch://'],
+    config: {
+        screens: {
+            PaymentResult: {
+                path: 'payment-complete',
+                parse: {
+                    reference: (reference: string) => reference,
+                },
+            },
+        },
+    },
+};
 
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
@@ -24,6 +41,7 @@ import ProfileCreationScreen from '../screens/ProfileCreationScreen';
 import IntentSelectionScreen from '../screens/IntentSelectionScreen';
 import SelectESimScreen from '../screens/SelectESimScreen';
 import PaymentResultScreen from '../screens/PaymentResultScreen';
+import ProfileSettingsScreen from '../screens/ProfileSettingsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -46,7 +64,14 @@ const AppNavigator = () => {
     };
 
     return (
-        <NavigationContainer>
+        <NavigationContainer
+            linking={linking}
+            fallback={
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color="#6200ee" />
+                </View>
+            }
+        >
             <Stack.Navigator screenOptions={{ headerShown: false }}>
                 {user ? (
                     <Stack.Group>
@@ -71,6 +96,7 @@ const AppNavigator = () => {
                         <Stack.Screen name="ReferralsScreen" component={ReferralsScreen} />
                         <Stack.Screen name="MyESims" component={MyESimsScreen} />
                         <Stack.Screen name="SelectESim" component={SelectESimScreen} options={{ title: 'Select eSIM' }} />
+                        <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
                         <Stack.Screen name="ESimDetails" component={ESimDetailsScreen} options={{ headerShown: false }} />
                         <Stack.Screen name="PaymentResult" component={PaymentResultScreen} />
                     </Stack.Group>

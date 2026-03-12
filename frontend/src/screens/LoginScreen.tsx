@@ -4,6 +4,7 @@ import { TextInput, Button, Text, Title, ActivityIndicator } from 'react-native-
 import { useAuth } from '../context/AuthContext';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import { COLORS, SIZES, SPACING } from '../theme';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
@@ -80,6 +81,7 @@ const LoginScreen = ({ navigation }: { navigation: LoginScreenNavigationProp }) 
                             setErrors(prev => ({ ...prev, email: '' }));
                         }}
                         style={styles.input}
+                        textColor={COLORS.text}
                         mode="outlined"
                         autoCapitalize="none"
                         keyboardType="email-address"
@@ -89,6 +91,9 @@ const LoginScreen = ({ navigation }: { navigation: LoginScreenNavigationProp }) 
                         }}
                         blurOnSubmit={false}
                         error={!!errors.email}
+                        outlineColor={COLORS.border}
+                        activeOutlineColor={COLORS.primary}
+                        theme={{ colors: { onSurfaceVariant: COLORS.textSecondary } }}
                     />
                     {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
 
@@ -101,11 +106,15 @@ const LoginScreen = ({ navigation }: { navigation: LoginScreenNavigationProp }) 
                             setErrors(prev => ({ ...prev, password: '' }));
                         }}
                         style={styles.input}
+                        textColor={COLORS.text}
                         mode="outlined"
                         secureTextEntry
                         returnKeyType="done"
                         onSubmitEditing={handleSubmitEditing}
                         error={!!errors.password}
+                        outlineColor={COLORS.border}
+                        activeOutlineColor={COLORS.primary}
+                        theme={{ colors: { onSurfaceVariant: COLORS.textSecondary } }}
                     />
                     {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
 
@@ -113,6 +122,7 @@ const LoginScreen = ({ navigation }: { navigation: LoginScreenNavigationProp }) 
                         mode="contained"
                         onPress={handleLogin}
                         style={styles.button}
+                        buttonColor={COLORS.primary}
                         loading={isLoading}
                         disabled={isLoading}
                         icon={isLoading ? () => <ActivityIndicator color="#fff" size="small" /> : undefined}
@@ -155,30 +165,30 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         justifyContent: 'center',
-        padding: 24,
-        backgroundColor: '#fff',
+        padding: SPACING.l,
+        backgroundColor: COLORS.background,
     },
     title: {
-        fontSize: 28,
+        fontSize: SIZES.h1,
         fontWeight: 'bold',
-        marginBottom: 8,
+        marginBottom: SPACING.s,
         textAlign: 'center',
-        color: '#6200ee',
+        color: COLORS.primary,
     },
     subtitle: {
-        fontSize: 16,
-        color: '#666',
+        fontSize: SIZES.body,
+        color: COLORS.textSecondary,
         textAlign: 'center',
-        marginBottom: 32,
+        marginBottom: SPACING.xl,
     },
     input: {
-        marginBottom: 8,
-        backgroundColor: '#fff',
+        marginBottom: SPACING.s,
+        backgroundColor: COLORS.surface,
     },
     button: {
-        marginTop: 16,
-        paddingVertical: 8,
-        borderRadius: 8,
+        marginTop: SPACING.m,
+        paddingVertical: SPACING.s,
+        borderRadius: SIZES.radius,
         height: 48,
         justifyContent: 'center',
     },
@@ -186,27 +196,28 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 24,
+        marginTop: SPACING.l,
     },
     footerText: {
-        color: '#666',
+        color: COLORS.textSecondary,
     },
     linkText: {
-        marginLeft: 4,
+        marginLeft: SPACING.xs,
+        color: COLORS.primary,
     },
     errorText: {
-        color: '#B00020',
-        fontSize: 12,
-        marginBottom: 8,
-        marginLeft: 4,
+        color: COLORS.error,
+        fontSize: SIZES.caption,
+        marginBottom: SPACING.s,
+        marginLeft: SPACING.xs,
     },
     forgotPasswordContainer: {
         alignItems: 'center',
-        marginTop: 16,
+        marginTop: SPACING.m,
     },
     forgotPasswordText: {
-        color: '#6200ee',
-        fontSize: 14,
+        color: COLORS.primary,
+        fontSize: SIZES.small,
     },
 });
 

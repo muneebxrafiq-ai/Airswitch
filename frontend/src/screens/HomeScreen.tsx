@@ -6,7 +6,7 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { Avatar } from 'react-native-paper';
-import { FONTS } from '../theme';
+import { FONTS, COLORS } from '../theme';
 
 // Mock data based on user request
 const POPULAR_COUNTRIES = [
@@ -53,7 +53,7 @@ const HomeScreen = () => {
     return (
         <View style={styles.container}>
             <LinearGradient
-                colors={['#FFE2D1', '#FFF5F0', '#FFFFFF']} // Peach to white
+                colors={[COLORS.background, COLORS.background, COLORS.background]} // Updated to dark background
                 style={styles.gradientBackground}
             />
 
@@ -173,7 +173,7 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8f9fa',
+        backgroundColor: COLORS.background,
     },
     gradientBackground: {
         position: 'absolute',
@@ -198,12 +198,12 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 28,
         fontFamily: FONTS.extraBold,
-        color: '#1a1a1a',
+        color: COLORS.text,
         letterSpacing: 0.5,
     },
     headerSubtitle: {
         fontSize: 15,
-        color: '#666',
+        color: COLORS.textSecondary,
         marginTop: 4,
         fontFamily: FONTS.medium,
     },
@@ -215,24 +215,22 @@ const styles = StyleSheet.create({
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.9)',
+        backgroundColor: COLORS.surfaceLight,
         borderRadius: 16,
         paddingHorizontal: 15,
         height: 50,
         marginBottom: 25,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
+        borderWidth: 1,
+        borderColor: COLORS.border,
     },
     searchIcon: {
         marginRight: 10,
+        color: COLORS.textSecondary,
     },
     searchInput: {
         flex: 1,
         fontSize: 16,
-        color: '#333',
+        color: COLORS.text,
     },
     sectionHeader: {
         flexDirection: 'row',
@@ -243,18 +241,18 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 20,
         fontFamily: FONTS.bold,
-        color: '#1a1a1a',
+        color: COLORS.text,
     },
     viewAllText: {
         fontSize: 14,
-        color: '#666',
+        color: COLORS.textSecondary,
         fontFamily: FONTS.medium,
     },
     countriesList: {
         paddingRight: 20,
     },
     countryCard: {
-        backgroundColor: 'white',
+        backgroundColor: COLORS.surface,
         borderRadius: 24, // Softer curves
         paddingVertical: 20,
         paddingHorizontal: 15,
@@ -263,11 +261,8 @@ const styles = StyleSheet.create({
         width: 120, // Slightly wider
         height: 160, // Taller
         justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
+        borderWidth: 1,
+        borderColor: COLORS.border,
     },
     flagContainer: {
         width: 60,
@@ -292,24 +287,22 @@ const styles = StyleSheet.create({
     countryName: {
         fontSize: 16,
         fontFamily: FONTS.medium,
-        color: '#1a1a1a',
+        color: COLORS.text,
         marginBottom: 4,
     },
     planCount: {
         fontSize: 13,
-        color: '#888',
+        color: COLORS.textSecondary,
         fontFamily: FONTS.regular,
     },
     // Updated Plan Card Styles
     planCard: {
-        backgroundColor: 'white',
+        backgroundColor: COLORS.surface,
         borderRadius: 24,
         padding: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-        elevation: 5,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        marginBottom: 15,
     },
     planHeaderRow: {
         flexDirection: 'row',
@@ -332,7 +325,7 @@ const styles = StyleSheet.create({
     planPrice: {
         fontSize: 22,
         fontFamily: FONTS.bold,
-        color: '#1a1a1a',
+        color: COLORS.text,
     },
     planContentRow: {
         flexDirection: 'row',
@@ -343,32 +336,32 @@ const styles = StyleSheet.create({
         width: 50,
         height: 50,
         borderRadius: 25,
-        backgroundColor: '#f9f9f9',
+        backgroundColor: COLORS.surfaceLight,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#f0f0f0',
+        borderColor: COLORS.border,
     },
     countryCode: {
         fontSize: 18,
         fontFamily: FONTS.semiBold,
-        color: '#333',
+        color: COLORS.text,
     },
     planCountryName: {
         fontSize: 18,
         fontFamily: FONTS.bold,
-        color: '#1a1a1a',
+        color: COLORS.text,
         marginBottom: 4,
     },
     planNetwork: {
         fontSize: 13,
-        color: '#00C853', // Greenish
+        color: COLORS.success, // Greenish
         fontFamily: FONTS.medium,
         marginBottom: 2,
     },
     planData: {
         fontSize: 13,
-        color: '#666',
+        color: COLORS.textSecondary,
         fontFamily: FONTS.regular,
     },
     viewDetailsButton: {

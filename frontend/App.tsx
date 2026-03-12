@@ -24,19 +24,19 @@ const theme = {
     ...DefaultTheme.fonts,
     default: {
       fontFamily: 'Inter_400Regular',
-      fontWeight: '400',
+      fontWeight: '400' as const,
       letterSpacing: 0,
     },
     titleMedium: {
       fontFamily: 'Inter_600SemiBold',
-      fontWeight: '600',
+      fontWeight: '600' as const,
       letterSpacing: 0.15,
       lineHeight: 24,
       fontSize: 16,
     },
     headlineMedium: {
       fontFamily: 'Inter_700Bold',
-      fontWeight: '700',
+      fontWeight: '700' as const,
       letterSpacing: 0,
       lineHeight: 36,
       fontSize: 28,
@@ -46,6 +46,8 @@ const theme = {
 };
 
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold } from '@expo-google-fonts/inter';
+import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
+import { HankenGrotesk_600SemiBold, HankenGrotesk_700Bold } from '@expo-google-fonts/hanken-grotesk';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
@@ -59,6 +61,9 @@ export default function App() {
     Inter_600SemiBold,
     Inter_700Bold,
     Inter_800ExtraBold,
+    SpaceGrotesk_700Bold,
+    HankenGrotesk_600SemiBold,
+    HankenGrotesk_700Bold,
   });
 
   useEffect(() => {

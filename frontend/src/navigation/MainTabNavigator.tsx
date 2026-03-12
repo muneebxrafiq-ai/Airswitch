@@ -1,9 +1,11 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { MaterialCommunityIcons } from '@expo/vector-icons'; // Or 'react-native-vector-icons/MaterialCommunityIcons'
+import { Feather } from '@expo/vector-icons';
+import { Platform, View } from 'react-native';
 import HomeScreen from '../screens/HomeScreen';
 import MyESimsScreen from '../screens/MyESimsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import { COLORS } from '../theme';
 
 const Tab = createBottomTabNavigator();
 
@@ -12,26 +14,35 @@ const MainTabNavigator = () => {
         <Tab.Navigator
             screenOptions={{
                 headerShown: false,
+                tabBarShowLabel: true,
                 tabBarStyle: {
-                    height: 60,
-                    paddingBottom: 10,
-                    paddingTop: 10,
-                    borderTopLeftRadius: 20,
-                    borderTopRightRadius: 20,
-                    backgroundColor: 'white',
+                    position: 'absolute',
+                    bottom: Platform.OS === 'ios' ? 30 : 20,
+                    left: 20,
+                    right: 20,
+                    height: 70,
+                    borderRadius: 35,
+                    backgroundColor: 'rgba(23, 25, 35, 0.95)', // Based on theme background
                     borderTopWidth: 0,
-                    elevation: 10,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.08)',
+                    paddingBottom: 12,
+                    paddingTop: 12,
+                    elevation: 15,
                     shadowColor: '#000',
-                    shadowOffset: { width: 0, height: -2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 4,
-                    position: 'absolute', // Floating effect or consistent
+                    shadowOffset: { width: 0, height: 10 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 20,
                 },
-                tabBarActiveTintColor: '#007AFF',
-                tabBarInactiveTintColor: '#999',
+                tabBarActiveTintColor: COLORS.white,
+                tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.4)',
                 tabBarLabelStyle: {
-                    fontSize: 12,
-                    fontWeight: '600',
+                    fontSize: 11,
+                    fontWeight: '500',
+                    marginTop: 2,
+                },
+                tabBarIconStyle: {
+                    marginBottom: -4,
                 }
             }}
         >
@@ -40,7 +51,7 @@ const MainTabNavigator = () => {
                 component={HomeScreen}
                 options={{
                     tabBarIcon: ({ color, size }) => (
-                        <MaterialCommunityIcons name="home-variant" color={color} size={size} />
+                        <Feather name="home" color={color} size={22} />
                     )
                 }}
             />
@@ -49,7 +60,7 @@ const MainTabNavigator = () => {
                 component={MyESimsScreen}
                 options={{
                     tabBarIcon: ({ color, size }) => (
-                        <MaterialCommunityIcons name="sim" color={color} size={size} />
+                        <Feather name="globe" color={color} size={22} />
                     )
                 }}
             />
@@ -58,7 +69,7 @@ const MainTabNavigator = () => {
                 component={ProfileScreen}
                 options={{
                     tabBarIcon: ({ color, size }) => (
-                        <MaterialCommunityIcons name="account" color={color} size={size} />
+                        <Feather name="user" color={color} size={22} />
                     )
                 }}
             />

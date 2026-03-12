@@ -87,10 +87,18 @@ export const purchaseESim = async (req: AuthenticatedRequest, res: Response) => 
             userId,
             planId: plan_id,
             paymentReference: payment_id || `wallet_${Date.now()}`,
-            paymentMethod: payment_method.toUpperCase(),
+            paymentMethod: payment_method.toUpperCase() as any,
             amount: pkg.price,
             currency: pkg.currency.toUpperCase()
         });
+
+        if (!order) {
+            // Provisioning lock was active (race condition handled)
+            return res.json({
+                success: true,
+                message: 'Provisioning already in progress'
+            });
+        }
 
         res.json({
             success: true,

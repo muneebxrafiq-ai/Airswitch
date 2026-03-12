@@ -3,8 +3,9 @@ import * as SecureStore from 'expo-secure-store';
 
 export const login = async (email: string, password: string) => {
     const response = await api.post('/auth/login', { email, password });
-    const { token, user, wallet } = response.data;
+    const { token, refreshToken, user, wallet } = response.data;
     await SecureStore.setItemAsync('token', token);
+    await SecureStore.setItemAsync('refreshToken', refreshToken);
     // Only store minimal user data to avoid SecureStore size limit
     const minimalUser = { id: user.id, email: user.email, name: user.name };
     await SecureStore.setItemAsync('user', JSON.stringify(minimalUser));
@@ -20,8 +21,9 @@ export const initiateRegister = async (email: string, password: string, name: st
 // Verifies registration OTP and creates user
 export const verifyRegistration = async (email: string, otp: string) => {
     const response = await api.post('/auth/verify-registration', { email, otp });
-    const { token, user, wallet } = response.data;
+    const { token, refreshToken, user, wallet } = response.data;
     await SecureStore.setItemAsync('token', token);
+    await SecureStore.setItemAsync('refreshToken', refreshToken);
     // Only store minimal user data to avoid SecureStore size limit
     const minimalUser = { id: user.id, email: user.email, name: user.name };
     await SecureStore.setItemAsync('user', JSON.stringify(minimalUser));
@@ -42,6 +44,7 @@ export const resetPassword = async (email: string, otp: string, newPassword: str
 
 export const logout = async () => {
     await SecureStore.deleteItemAsync('token');
+    await SecureStore.deleteItemAsync('refreshToken');
     await SecureStore.deleteItemAsync('user');
 };
 

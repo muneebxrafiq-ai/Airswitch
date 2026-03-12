@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useAuth } from '../context/AuthContext';
@@ -13,11 +13,46 @@ const ProfileScreen = () => {
   const navigation = useNavigation<any>();
 
   const initial = user?.name?.[0] || 'T';
+  const [autoSwitchEnabled, setAutoSwitchEnabled] = useState(true);
+
+  const shortcutTiles = useMemo(
+    () => [
+      {
+        key: 'buy',
+        label: 'Buy Plan',
+        icon: 'cart-outline' as const,
+        variant: 'light' as const,
+        onPress: () => navigation.navigate('SelectPlan', {}),
+      },
+      {
+        key: 'topup',
+        label: 'Top Up',
+        icon: 'credit-card-outline' as const,
+        variant: 'light' as const,
+        onPress: () => navigation.navigate('TopUp'),
+      },
+      {
+        key: 'coverage',
+        label: 'Coverage',
+        icon: 'access-point' as const,
+        variant: 'dark' as const,
+        onPress: () => { },
+      },
+      {
+        key: 'support',
+        label: 'Support',
+        icon: 'headset' as const,
+        variant: 'dark' as const,
+        onPress: () => { },
+      },
+    ],
+    [navigation]
+  );
 
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#050816', '#050816', '#101827']}
+        colors={['#171923', '#171923']}
         style={StyleSheet.absoluteFill}
       />
 
@@ -38,71 +73,78 @@ const ProfileScreen = () => {
               </View>
             </View>
             <View style={styles.headerIcons}>
-              <TouchableOpacity style={styles.iconBtn}>
+              <TouchableOpacity style={styles.iconBtn} activeOpacity={0.85}>
+                <View style={styles.notificationDot} />
                 <MaterialCommunityIcons name="bell-outline" size={22} color="#E5E7EB" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.iconBtn}>
-                <MaterialCommunityIcons name="cog-outline" size={22} color="#E5E7EB" />
+              <TouchableOpacity style={styles.iconBtn} activeOpacity={0.85} onPress={() => navigation.navigate('ProfileSettings')}>
+                <MaterialCommunityIcons name="menu" size={22} color="#E5E7EB" />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Search bar */}
-          <TouchableOpacity style={styles.searchBar} activeOpacity={0.8}>
-            <MaterialCommunityIcons name="magnify" size={20} color="#9CA3AF" />
-            <Text style={styles.searchText}>Search Country</Text>
-          </TouchableOpacity>
+          {/* Search row */}
+          <View style={styles.searchRow}>
+            <TouchableOpacity style={styles.searchBar} activeOpacity={0.8}>
+              <MaterialCommunityIcons name="magnify" size={20} color="#9CA3AF" />
+              <Text style={styles.searchText}>Search Country</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.circleActionBtn} activeOpacity={0.85}>
+              <MaterialCommunityIcons name="view-grid-outline" size={20} color="#E5E7EB" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.circleActionBtn} activeOpacity={0.85}>
+              <MaterialCommunityIcons name="qrcode-scan" size={20} color="#E5E7EB" />
+            </TouchableOpacity>
+          </View>
 
           {/* Current plan card */}
           <View style={styles.planCard}>
             <View style={styles.planHeader}>
-              <View style={styles.planBadge}>
-                <Text style={styles.planBadgeText}>Global 10GB</Text>
+              <View style={styles.planTitleRow}>
+                <MaterialCommunityIcons name="sim" size={18} color="#CBD5E1" />
+                <Text style={styles.planTitleText}>Global 10GB</Text>
               </View>
-              <TouchableOpacity>
-                <MaterialCommunityIcons name="dots-horizontal" size={22} color="#9CA3AF" />
+              <TouchableOpacity style={styles.seeDetailsPill} activeOpacity={0.85}>
+                <Text style={styles.seeDetailsText}>See Details</Text>
+                <MaterialCommunityIcons name="chevron-right" size={18} color="#E5E7EB" />
               </TouchableOpacity>
             </View>
             <Text style={styles.planDataLeft}>8.7GB left</Text>
             <Text style={styles.planDataTotal}>Out of 10GB</Text>
             <Text style={styles.planValidity}>Validity: Feb 28 2026</Text>
-            <TouchableOpacity style={styles.planButton} activeOpacity={0.9}>
-              <Text style={styles.planButtonText}>See Details</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Shortcuts */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>My Shortcut</Text>
           </View>
-          <View style={styles.shortcutsRow}>
-            <TouchableOpacity
-              style={styles.shortcutCard}
-              activeOpacity={0.9}
-              onPress={() => navigation.navigate('SelectPlan', {})}
-            >
-              <MaterialCommunityIcons name="cart-outline" size={24} color="#2563EB" />
-              <Text style={styles.shortcutLabel}>Buy Plan</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.shortcutCard}
-              activeOpacity={0.9}
-              onPress={() => navigation.navigate('TopUp')}
-            >
-              <MaterialCommunityIcons name="wallet-outline" size={24} color="#7C3AED" />
-              <Text style={styles.shortcutLabel}>Top Up</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.shortcutCard} activeOpacity={0.9}>
-              <MaterialCommunityIcons name="map-marker-radius-outline" size={24} color="#059669" />
-              <Text style={styles.shortcutLabel}>Coverage</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.shortcutCard} activeOpacity={0.9}>
-              <MaterialCommunityIcons name="headset-outline" size={24} color="#F97316" />
-              <Text style={styles.shortcutLabel}>Support</Text>
-            </TouchableOpacity>
+          <View style={styles.shortcutsGrid}>
+            {shortcutTiles.map((tile) => (
+              <TouchableOpacity
+                key={tile.key}
+                style={[
+                  styles.shortcutTile,
+                  tile.variant === 'light' ? styles.shortcutTileLight : styles.shortcutTileDark,
+                ]}
+                activeOpacity={0.9}
+                onPress={tile.onPress}
+              >
+                <Text
+                  style={[
+                    styles.shortcutLabel,
+                    tile.variant === 'light' ? styles.shortcutLabelLight : styles.shortcutLabelDark,
+                  ]}
+                >
+                  {tile.label}
+                </Text>
+                <MaterialCommunityIcons
+                  name={tile.icon}
+                  size={20}
+                  color={tile.variant === 'light' ? '#E5E7EB' : '#E5E7EB'}
+                  style={styles.shortcutIcon}
+                />
+              </TouchableOpacity>
+            ))}
           </View>
 
           {/* Auto switch card */}
@@ -111,9 +153,8 @@ const ProfileScreen = () => {
               <Text style={styles.autoTitle}>Auto Switch Active</Text>
               <Text style={styles.autoSubtitle}>Automatic Network Switching</Text>
             </View>
-            <View style={styles.autoStatusPill}>
-              <View style={styles.autoDot} />
-              <Text style={styles.autoStatusText}>Enabled</Text>
+            <View style={styles.autoRight}>
+              <Text style={styles.autoEnabledText}>Enabled</Text>
             </View>
           </View>
 
@@ -134,7 +175,7 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 10,
   },
   scrollContent: {
@@ -154,12 +195,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#111827',
+    backgroundColor: '#2D3748',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
     borderWidth: 1,
-    borderColor: '#4B5563',
+    borderColor: '#4A5568',
   },
   avatarInitial: {
     color: '#F9FAFB',
@@ -174,7 +215,7 @@ const styles = StyleSheet.create({
   greetingName: {
     color: '#F9FAFB',
     fontSize: 16,
-    fontFamily: FONTS.semiBold,
+    fontFamily: FONTS.spaceGroteskBold,
   },
   headerIcons: {
     flexDirection: 'row',
@@ -185,35 +226,63 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#111827',
+    backgroundColor: '#2D3748',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#1F2937',
+    borderColor: '#4A5568',
   },
-  searchBar: {
+  notificationDot: {
+    position: 'absolute',
+    top: 7,
+    right: 9,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#171923',
+    zIndex: 2,
+  },
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    gap: 10,
+    marginBottom: 14,
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2D3748',
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#1F2937',
-    marginBottom: 20,
+    borderColor: '#4A5568',
+  },
+  circleActionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#2D3748',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#4A5568',
   },
   searchText: {
-    color: '#9CA3AF',
+    color: '#A0AEC0',
     marginLeft: 8,
     fontSize: 14,
     fontFamily: FONTS.regular,
   },
   planCard: {
-    backgroundColor: '#020617',
+    backgroundColor: '#1A2235',
     borderRadius: 20,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#2D3748',
     marginBottom: 24,
   },
   planHeader: {
@@ -222,16 +291,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  planBadge: {
-    backgroundColor: '#111827',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  planTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  planTitleText: {
+    color: '#E2E8F0',
+    fontSize: 13,
+    fontFamily: FONTS.hankenGroteskSemiBold,
+  },
+  seeDetailsPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#3C4858',
+    borderWidth: 1,
+    borderColor: '#4A5568',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 999,
   },
-  planBadgeText: {
-    color: '#E5E7EB',
+  seeDetailsText: {
+    color: '#E2E8F0',
     fontSize: 12,
-    fontFamily: FONTS.semiBold,
+    fontFamily: FONTS.medium,
   },
   planDataLeft: {
     color: '#F9FAFB',
@@ -239,29 +323,16 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.extraBold,
   },
   planDataTotal: {
-    color: '#9CA3AF',
+    color: '#A0AEC0',
     fontSize: 13,
     marginTop: 2,
     fontFamily: FONTS.regular,
   },
   planValidity: {
-    color: '#9CA3AF',
+    color: '#A0AEC0',
     fontSize: 12,
     marginTop: 8,
     fontFamily: FONTS.regular,
-  },
-  planButton: {
-    alignSelf: 'flex-end',
-    marginTop: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: '#1D4ED8',
-  },
-  planButtonText: {
-    color: '#F9FAFB',
-    fontSize: 13,
-    fontFamily: FONTS.semiBold,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -270,40 +341,58 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    color: '#E5E7EB',
+    color: '#E2E8F0',
     fontSize: 16,
     fontFamily: FONTS.semiBold,
   },
-  shortcutsRow: {
+  shortcutsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    gap: 6,
+    marginBottom: 18,
   },
-  shortcutCard: {
-    flex: 1,
-    marginHorizontal: 4,
-    backgroundColor: '#020617',
-    borderRadius: 16,
+  shortcutTile: {
+    width: '48%',
+    borderRadius: 12,
+    paddingHorizontal: 14,
     paddingVertical: 14,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  shortcutTileLight: {
+    backgroundColor: '#BFD9FF',
+  },
+  shortcutTileDark: {
+    backgroundColor: '#596B85',
     borderWidth: 1,
-    borderColor: '#1F2937',
-    gap: 8,
+    borderColor: '#7A8B9E',
   },
   shortcutLabel: {
-    color: '#E5E7EB',
     fontSize: 12,
     fontFamily: FONTS.medium,
+  },
+  shortcutLabelLight: {
+    color: '#0B1220',
+    fontFamily: FONTS.semiBold,
+  },
+  shortcutLabelDark: {
+    color: '#F8FAFC',
+    fontFamily: FONTS.semiBold,
+  },
+  shortcutIcon: {
+    opacity: 0.9,
   },
   autoSwitchCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#020617',
+    backgroundColor: '#1A2235',
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#2D3748',
     marginBottom: 24,
   },
   autoTitle: {
@@ -313,27 +402,17 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   autoSubtitle: {
-    color: '#9CA3AF',
+    color: '#A0AEC0',
     fontSize: 12,
     fontFamily: FONTS.regular,
   },
-  autoStatusPill: {
+  autoRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#022C22',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    gap: 6,
+    gap: 10,
   },
-  autoDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#22C55E',
-  },
-  autoStatusText: {
-    color: '#BBF7D0',
+  autoEnabledText: {
+    color: '#34D399',
     fontSize: 12,
     fontFamily: FONTS.medium,
   },

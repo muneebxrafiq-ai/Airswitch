@@ -69,6 +69,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
 
             // Fetch full user data from API
+            // The api interceptor will auto-refresh the token if it's expired
             try {
                 const userResponse = await api.get('/auth/me');
                 const userData = userResponse.data;
@@ -80,8 +81,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 setUser({ ...userData, wallet });
             } catch (error: any) {
                 console.error('Failed to load user data:', error);
-                if (error.response?.status === 401) {
-                    console.log('Token expired, logging out...');
+                const status = error.response?.status;
+                // If both access AND refresh tokens are expired/invalid, the interceptor
+                // will have already cleared storage. Just clean up state.
+                if (status === 401 || status === 403) {
+                    console.log('Auth failed (token refresh also failed), logging out...');
                     await authLogout();
                     setUser(null);
                 }

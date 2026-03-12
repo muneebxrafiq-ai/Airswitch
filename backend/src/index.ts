@@ -13,6 +13,9 @@ import referralRoutes from './routes/referralRoutes';
 import pointsRoutes from './routes/pointsRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import userRoutes from './routes/userRoutes';
+import swaggerDocs from './utils/swagger';
+import { errorHandler } from './middleware/errorMiddleware';
+import { NotFoundError } from './utils/AppError';
 
 dotenv.config();
 
@@ -55,10 +58,19 @@ app.get('/', (req: Request, res: Response) => {
     res.send('Airswitch Backend is Running!');
 });
 
+// 404 Handler
+app.use((req: Request, res: Response, next: any) => {
+    next(new NotFoundError(`Can't find ${req.originalUrl} on this server!`));
+});
+
+// Global Error Handler
+app.use(errorHandler);
+
 const start = async () => {
     try {
         await prisma.$connect();
         console.log('Connected to Database');
+        swaggerDocs(app, PORT as number);
         app.listen(PORT as number, '0.0.0.0', () => {
             console.log(`Server is running on http://0.0.0.0:${PORT}`);
         });

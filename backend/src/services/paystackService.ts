@@ -33,6 +33,7 @@ interface PaystackVerifyResponse {
         reference: string;
         amount: number;
         currency: string;
+        metadata?: any;
     }
 }
 

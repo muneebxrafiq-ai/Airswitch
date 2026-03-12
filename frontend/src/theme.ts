@@ -19,25 +19,27 @@ const COLORS_LIGHT = {
     black: '#000000',
 };
 
-// B - Dark Theme (Cyber / Night Mode)
+// B - Dark Theme (Tech/Sleek Mode)
 const COLORS_DARK = {
     primary: '#3B82F6',
     primaryDark: '#1D4ED8',
     secondary: '#FAFAFA',
     accent: '#14B8A6',
-    background: '#111827', // Dark Grey/Blue
-    surface: '#1F2937', // Lighter Grey
+    background: '#171923', // Lighter Dark Background (from Profile)
+    surface: '#1A2235', // Card Surface (from Profile)
+    surfaceLight: '#2D3748', // Lighter Surface for elements like inputs/buttons
     text: '#F9FAFB',
-    textSecondary: '#9CA3AF',
+    textSecondary: '#A0AEC0',
     success: '#10B981',
     error: '#EF4444',
-    border: '#374151',
+    border: '#2D3748', // General Border (from Profile)
+    borderLight: '#4A5568', // Lighter Border (from Profile)
     white: '#FFFFFF',
     black: '#000000',
 };
 
 // Toggle this to switch themes basically (or implement Context later)
-export const COLORS = COLORS_LIGHT;
+export const COLORS = COLORS_DARK;
 
 export const SPACING = {
     xs: 4,
@@ -94,4 +96,9 @@ export const FONTS = {
     medium: 'Inter_500Medium',
     regular: 'Inter_400Regular',
     extraBold: 'Inter_800ExtraBold',
+    // Space Grotesk — used for user name
+    spaceGroteskBold: 'SpaceGrotesk_700Bold',
+    // Hanken Grotesk — used for package name
+    hankenGroteskSemiBold: 'HankenGrotesk_600SemiBold',
+    hankenGroteskBold: 'HankenGrotesk_700Bold',
 };

@@ -7,6 +7,7 @@ import api from '../services/api';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useAuth } from '../context/AuthContext';
+import { COLORS } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TopUp'>;
 
@@ -221,28 +222,31 @@ const TopUpScreen = ({ navigation }: Props) => {
 const styles = StyleSheet.create({
     container: {
         padding: 20,
-        backgroundColor: '#fff',
+        backgroundColor: COLORS.background,
         flexGrow: 1,
     },
     title: {
         textAlign: 'center',
         marginTop: 40,
         fontSize: 24,
+        color: COLORS.text,
     },
     subtitle: {
         textAlign: 'center',
-        color: '#666',
+        color: COLORS.textSecondary,
         marginTop: 8,
         marginBottom: 30,
     },
     card: {
         marginBottom: 20,
         elevation: 2,
+        backgroundColor: COLORS.surface,
     },
     label: {
         fontSize: 14,
         fontWeight: 'bold',
         marginBottom: 10,
+        color: COLORS.text,
     },
     presetContainer: {
         flexDirection: 'row',

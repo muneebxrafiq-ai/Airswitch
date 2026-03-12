@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform, AppState } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -21,10 +21,32 @@ const SelectPlanScreen = ({ navigation, route }: Props) => {
     const [purchasing, setPurchasing] = useState(false);
     const [plans, setPlans] = useState<any[]>([]);
     const { initPaymentSheet, presentPaymentSheet } = useStripe();
+    const paystackRef = useRef<string | null>(null);
+    const appStateRef = useRef(AppState.currentState);
 
     useEffect(() => {
         fetchPlans();
     }, []);
+
+    // Listen for app returning to foreground after Paystack payment
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', (nextAppState) => {
+            if (
+                appStateRef.current.match(/inactive|background/) &&
+                nextAppState === 'active' &&
+                paystackRef.current
+            ) {
+                // User has returned from Chrome — navigate to PaymentResult
+                const ref = paystackRef.current;
+                paystackRef.current = null; // Clear so it doesn't fire again
+                setPurchasing(false);
+                navigation.navigate('PaymentResult', { reference: ref });
+            }
+            appStateRef.current = nextAppState;
+        });
+
+        return () => subscription.remove();
+    }, [navigation]);
 
     const fetchPlans = async () => {
         try {
@@ -127,17 +149,22 @@ const SelectPlanScreen = ({ navigation, route }: Props) => {
                 planId: plan.id
             });
 
-            const { authorization_url } = data;
+            const { authorization_url, reference } = data;
+
+            // Save reference so we can navigate to PaymentResult when app returns
+            paystackRef.current = reference;
 
             const supported = await Linking.canOpenURL(authorization_url);
             if (supported) {
                 await Linking.openURL(authorization_url);
+                // Don't setPurchasing(false) here — the AppState listener will handle it
             } else {
+                paystackRef.current = null;
                 throw new Error("Cannot open payment link");
             }
         } catch (error: any) {
+            paystackRef.current = null;
             Alert.alert('Payment Initialization Failed', error.message || 'Something went wrong');
-        } finally {
             setPurchasing(false);
         }
     };
@@ -187,10 +214,10 @@ const SelectPlanScreen = ({ navigation, route }: Props) => {
         return (
             <View style={styles.centered}>
                 <LinearGradient
-                    colors={['#FFE2D1', '#FFF5F0', '#FFFFFF']}
+                    colors={[COLORS.background, COLORS.background, COLORS.background]}
                     style={StyleSheet.absoluteFill}
                 />
-                <ActivityIndicator size="large" color="#0052FF" />
+                <ActivityIndicator size="large" color={COLORS.primary} />
                 <Text style={styles.loadingText}>Fetching best plans for you...</Text>
             </View>
         );
@@ -199,13 +226,13 @@ const SelectPlanScreen = ({ navigation, route }: Props) => {
     return (
         <View style={styles.container}>
             <LinearGradient
-                colors={['#FFE2D1', '#FFF5F0', '#FFFFFF']}
+                colors={[COLORS.background, COLORS.background, COLORS.background]}
                 style={StyleSheet.absoluteFill}
             />
 
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color="#1a1a1a" />
+                    <Ionicons name="arrow-back" size={24} color={COLORS.text} />
                 </TouchableOpacity>
                 <View>
                     <Text style={styles.headerTitle}>Select eSIM Plan</Text>
@@ -233,16 +260,16 @@ const SelectPlanScreen = ({ navigation, route }: Props) => {
 
                         <View style={styles.featureRow}>
                             <View style={styles.featureItem}>
-                                <MaterialCommunityIcons name="database-outline" size={18} color="#666" />
+                                <MaterialCommunityIcons name="database-outline" size={18} color={COLORS.textSecondary} />
                                 <Text style={styles.featureText}>{plan.data}</Text>
                             </View>
                             <View style={styles.featureItem}>
-                                <MaterialCommunityIcons name="clock-outline" size={18} color="#666" />
+                                <MaterialCommunityIcons name="clock-outline" size={18} color={COLORS.textSecondary} />
                                 <Text style={styles.featureText}>{plan.duration || '30 Days'}</Text>
                             </View>
                             <View style={styles.featureItem}>
-                                <MaterialCommunityIcons name="signal" size={18} color="#00C853" />
-                                <Text style={[styles.featureText, { color: '#00C853' }]}>5G / 4G</Text>
+                                <MaterialCommunityIcons name="signal" size={18} color={COLORS.success} />
+                                <Text style={[styles.featureText, { color: COLORS.success }]}>5G / 4G</Text>
                             </View>
                         </View>
 
@@ -273,7 +300,7 @@ const SelectPlanScreen = ({ navigation, route }: Props) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: COLORS.background,
     },
     centered: {
         flex: 1,
@@ -284,7 +311,7 @@ const styles = StyleSheet.create({
     loadingText: {
         marginTop: 20,
         fontSize: 16,
-        color: '#666',
+        color: COLORS.textSecondary,
         fontFamily: FONTS?.medium
     },
     header: {
@@ -298,34 +325,33 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.7)',
+        backgroundColor: COLORS.surfaceLight,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 15,
+        borderWidth: 1,
+        borderColor: COLORS.border,
     },
     headerTitle: {
         fontSize: 24,
         fontFamily: FONTS?.bold || 'System',
-        color: '#1a1a1a',
+        color: COLORS.text,
     },
     headerSubtitle: {
         fontSize: 14,
-        color: '#666',
+        color: COLORS.textSecondary,
     },
     scrollContent: {
         paddingHorizontal: 20,
         paddingTop: 10,
     },
     planCard: {
-        backgroundColor: 'white',
+        backgroundColor: COLORS.surface,
         borderRadius: 24,
         padding: 20,
         marginBottom: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-        elevation: 5,
+        borderWidth: 1,
+        borderColor: COLORS.border,
     },
     planHeader: {
         flexDirection: 'row',
@@ -336,33 +362,37 @@ const styles = StyleSheet.create({
         width: 50,
         height: 50,
         borderRadius: 25,
-        backgroundColor: '#F7F9FB',
+        backgroundColor: COLORS.surfaceLight,
         justifyContent: 'center',
         alignItems: 'center',
+        borderWidth: 1,
+        borderColor: COLORS.border,
     },
     planName: {
         fontSize: 16,
         fontFamily: FONTS?.bold || 'System',
-        color: '#1a1a1a',
+        color: COLORS.text,
     },
     planRegion: {
         fontSize: 14,
-        color: '#666',
+        color: COLORS.textSecondary,
     },
     priceContainer: {
         paddingHorizontal: 12,
         paddingVertical: 6,
-        backgroundColor: '#F0F9FF',
+        backgroundColor: COLORS.surfaceLight,
         borderRadius: 12,
+        borderWidth: 1,
+        borderColor: COLORS.border,
     },
     priceText: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#0052FF',
+        color: COLORS.primary,
     },
     divider: {
         height: 1,
-        backgroundColor: '#F0F0F0',
+        backgroundColor: COLORS.border,
         marginVertical: 15,
     },
     featureRow: {
@@ -377,7 +407,7 @@ const styles = StyleSheet.create({
     },
     featureText: {
         fontSize: 13,
-        color: '#333',
+        color: COLORS.text,
         fontFamily: FONTS?.medium
     },
     buyButton: {
